@@ -76,7 +76,7 @@ const locations = [
     lon: -64.208333,
     cca2: "AR",
     region: "South America",
-    city: "CÃ³rdoba"
+    city: "Córdoba"
   },
   {
     iata: "NQN",
@@ -252,7 +252,7 @@ const locations = [
     lon: -48.5013,
     cca2: "BR",
     region: "South America",
-    city: "BelÃ©m"
+    city: "Belém"
   },
   {
     iata: "CNF",
@@ -404,7 +404,7 @@ const locations = [
     lon: -49.378994,
     cca2: "BR",
     region: "South America",
-    city: "SÃ£o JosÃ© do Rio Preto"
+    city: "São José do Rio Preto"
   },
   {
     iata: "GRU",
@@ -412,7 +412,7 @@ const locations = [
     lon: -46.4730567932,
     cca2: "BR",
     region: "South America",
-    city: "SÃ£o Paulo"
+    city: "São Paulo"
   },
   {
     iata: "SOD",
@@ -508,7 +508,7 @@ const locations = [
     lon: -73.7407989502,
     cca2: "CA",
     region: "North America",
-    city: "MontrÃ©al"
+    city: "Montréal"
   },
   {
     iata: "YXE",
@@ -532,7 +532,7 @@ const locations = [
     lon: -73.0444,
     cca2: "CL",
     region: "South America",
-    city: "ConcepciÃ³n"
+    city: "Concepción"
   },
   {
     iata: "SCL",
@@ -548,7 +548,7 @@ const locations = [
     lon: -74.1469,
     cca2: "CO",
     region: "South America",
-    city: "BogotÃ¡"
+    city: "Bogotá"
   },
   {
     iata: "MDE",
@@ -556,7 +556,7 @@ const locations = [
     lon: -75.4231,
     cca2: "CO",
     region: "South America",
-    city: "MedellÃ\u00adn
+    city: "Medellín"
   },
   {
     iata: "SJO",
@@ -564,7 +564,7 @@ const locations = [
     lon: -84.2088012695,
     cca2: "CR",
     region: "South America",
-    city: "San JosÃ©"
+    city: "San José"
   },
   {
     iata: "ZAG",
@@ -692,7 +692,7 @@ const locations = [
     lon: 6.7667798996,
     cca2: "DE",
     region: "Europe",
-    city: "DÃ¼sseldorf"
+    city: "Düsseldorf"
   },
   {
     iata: "FRA",
@@ -812,7 +812,7 @@ const locations = [
     lon: -22.6056003571,
     cca2: "IS",
     region: "Europe",
-    city: "ReykjavÃ\u00adk
+    city: "Reykjavík"
   },
   {
     iata: "AMD",
@@ -1212,7 +1212,7 @@ const locations = [
     lon: 28.9309997559,
     cca2: "MD",
     region: "Europe",
-    city: "ChiÈ™inÄƒu"
+    city: "Chișinău"
   },
   {
     iata: "ULN",
@@ -1364,7 +1364,7 @@ const locations = [
     lon: -57.5200004578,
     cca2: "PY",
     region: "South America",
-    city: "AsunciÃ³n"
+    city: "Asunción"
   },
   {
     iata: "LIM",
