@@ -17,6 +17,7 @@ export default {
         },
         memberOf: 'https://primitives.do',
       },
+      colo: locations.find(loc => loc.iata == req.cf.colo),
       user: {
         login: origin + '/login',
         signup: origin + '/signup',
