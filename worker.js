@@ -28,7 +28,7 @@ export default {
         city: req.cf.city,
         metro: metros[req.cf.metroCode],
         region: req.cf.region,
-        country: countries.find(loc => loc.cca2 == req.cf.country)[name],
+        country: countries.find(loc => loc.cca2 == req.cf.country)?.name,
         flag: flags[req.cf.country],
         continent: req.cf.continent,
         requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
