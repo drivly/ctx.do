@@ -4,6 +4,7 @@ export default {
   fetch: (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
     const {origin} = new URL(req.url)
+    const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     
     return new Response(JSON.stringify({
