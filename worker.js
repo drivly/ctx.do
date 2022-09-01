@@ -26,6 +26,7 @@ export default {
         ip,
         isp: req.cf.asOrganization,
         flag: flags[req.cf.country],
+        zipcode: req.cf.postalCode,
         city: req.cf.city,
         metro: metros[req.cf.metroCode],
         region: req.cf.region,
