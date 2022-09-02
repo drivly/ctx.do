@@ -1,44 +1,46 @@
 const interactionCounter = {}
 
 export default {
-  fetch: (req, env) => {
+  fetch: async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
-    const {origin} = new URL(req.url)
+    const { origin } = new URL(req.url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
-    
-    return new Response(JSON.stringify({
-      api: {
-        icon: '🌎',
-        name: 'ctx.do',
-        description: 'Context Enrichment',
-        url: 'https://ctx.do',
-        endpoints: {
-          context: 'https://ctx.do/api',
+
+    return new Response(
+      JSON.stringify({
+        api: {
+          icon: '🌎',
+          name: 'ctx.do',
+          description: 'Context Enrichment',
+          url: 'https://ctx.do',
+          endpoints: {
+            context: 'https://ctx.do/api',
+          },
+          memberOf: 'https://primitives.do',
         },
-        memberOf: 'https://primitives.do',
-      },
-      colo: locations.find(loc => loc.iata == req.cf.colo),
-      user: {
-        login: origin + '/login',
-        signup: origin + '/signup',
-        authenticated: false,
-        plan: 'build',
-        ip,
-        isp: req.cf.asOrganization,
-        flag: flags[req.cf.country],
-        zipcode: req.cf.postalCode,
-        city: req.cf.city,
-        metro: metros[req.cf.metroCode],
-        region: req.cf.region,
-        country: countries.find(loc => loc.cca2 == req.cf.country)?.name,
-        continent: req.cf.continent,
-        requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
-        latencyMilliseconds: req.cf.clientTcpRtt,
-        recentInteractions: interactionCounter[ip],
-      }
-    }))
-  }
+        colo: locations.find((loc) => loc.iata === req.cf.colo),
+        user: {
+          login: origin + '/login',
+          signup: origin + '/signup',
+          authenticated: false,
+          plan: 'build',
+          ip,
+          isp: req.cf.asOrganization,
+          flag: flags[req.cf.country],
+          zipcode: req.cf.postalCode,
+          city: req.cf.city,
+          metro: metros[req.cf.metroCode],
+          region: req.cf.region,
+          country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
+          continent: req.cf.continent,
+          requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
+          latencyMilliseconds: req.cf.clientTcpRtt,
+          recentInteractions: interactionCounter[ip],
+        },
+      })
+    )
+  },
 }
 
 const locations = [
