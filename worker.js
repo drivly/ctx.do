@@ -17,7 +17,8 @@ export default {
           endpoints: {
             context: 'https://ctx.do/api',
           },
-          memberOf: 'https://primitives.do',
+          memberOf: 'https://apis.do',
+          repo: 'https://github.com/drivly/ctx.do',
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
         user: {
