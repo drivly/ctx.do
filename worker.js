@@ -36,8 +36,9 @@ export default {
           metro: metros[req.cf.metroCode],
           region: req.cf.region,
           country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
-          continent: req.cf.continent,
+          continent: continents[req.cf.continent],
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
+          trustScore: req.cf.botManagement.score,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
         },
@@ -2694,4 +2695,14 @@ const metros = {
   "866": "Fresno-Visalia",
   "868": "Chico-Redding",
   "881": "Spokane"
+}
+
+const continents = {
+  AF: 'Africa',
+  AN: 'Antarctica',
+  AS: 'Asia',
+  EU: 'Europe',
+  NA: 'North America',
+  OC: 'Oceania',
+  SA: 'South America',
 }
