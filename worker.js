@@ -38,9 +38,9 @@ export default {
           country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
           continent: continents[req.cf.continent],
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
-          trustScore: req.cf.botManagement.score,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
+          trustScore: req.cf.botManagement.score,
         },
       })
     )
