@@ -40,7 +40,7 @@ export default {
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
-          trustScore: req.cf.botManagement.score,
+          trustScore: req.cf?.botManagement?.score,
         },
       })
     )
