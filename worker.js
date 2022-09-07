@@ -21,8 +21,8 @@ export default {
           repo: 'https://github.com/drivly/ctx.do',
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
-        cf: req.cf,
-        headers: Object.fromEntries(req.headers),
+//         cf: req.cf,
+//         headers: Object.fromEntries(req.headers),
         user: {
           login: origin + '/login',
           signup: origin + '/signup',
