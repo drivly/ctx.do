@@ -42,7 +42,7 @@ export default {
           recentInteractions: interactionCounter[ip],
           trustScore: req.cf?.botManagement?.score,
         },
-      }, null, 2)
+      }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' }}
     )
   },
 }
