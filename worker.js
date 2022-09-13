@@ -7,6 +7,8 @@ export default {
     const { origin } = new URL(url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
+    const ts = Date.now()
+    const time = new Date(ts).toISOString()
 
     return new Response(
       JSON.stringify({
@@ -22,6 +24,8 @@ export default {
           repo: 'https://github.com/drivly/ctx.do',
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
+        ts,
+        time,
         body,
         url,
         method,
