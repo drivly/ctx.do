@@ -1,4 +1,5 @@
 const interactionCounter = {}
+const hashes = {}
 
 export default {
   fetch: async (req, env) => {
