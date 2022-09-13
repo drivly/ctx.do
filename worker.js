@@ -20,7 +20,9 @@ export default {
           endpoints: {
             context: 'https://ctx.do/api',
           },
-          memberOf: 'https://apis.do',
+          memberOf: 'https://apis.do/core',
+          login: origin + '/login',
+          signup: origin + '/signup',
           repo: 'https://github.com/drivly/ctx.do',
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
@@ -32,8 +34,8 @@ export default {
         cf,
         headers: Object.fromEntries(req.headers),
         user: {
-          login: origin + '/login',
-          signup: origin + '/signup',
+//           login: origin + '/login',
+//           signup: origin + '/signup',
           authenticated: false,
           plan: 'build',
           ip,
