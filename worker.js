@@ -3,7 +3,8 @@ const interactionCounter = {}
 export default {
   fetch: async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
-    const { origin } = new URL(req.url)
+    const { url, cf, method } = req
+    const { origin } = new URL(url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
 
@@ -22,8 +23,10 @@ export default {
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
         body,
-//         cf: req.cf,
-//         headers: Object.fromEntries(req.headers),
+        url,
+        method,
+        cf,
+        headers: Object.fromEntries(req.headers),
         user: {
           login: origin + '/login',
           signup: origin + '/signup',
