@@ -50,6 +50,7 @@ export default {
         body,
         url,
         method,
+        jwt: jwt || undefined,
         cf,
         headers: Object.fromEntries(req.headers),
         user: {
