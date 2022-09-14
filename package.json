@@ -20,6 +20,7 @@
   "dependencies": {
     "jose": "^4.8.3",
     "punycode": "^2.1.1",
+    "qs": "^6.11.0",
     "ua-parser-js": "^1.0.2"
   }
 }
