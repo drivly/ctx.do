@@ -31,7 +31,9 @@ export default {
     }
 
     let authenticated = false
-    const token = req.headers.get('cookie').split(';').find(c => c.includes(authCookie))?.trim()?.slice(authCookie.length)
+    const token = req.headers.get('cookie').split(';').find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
+
+    console.log({ token })
     let jwt = null
     if (token) {
       try {
@@ -41,7 +43,8 @@ export default {
           hashes[token] = jwt
         }
         authenticated = true
-      } catch {
+      } catch (error) {
+        console.error(error)
         authenticated = false
       }
     }
