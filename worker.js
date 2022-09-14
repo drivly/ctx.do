@@ -1,6 +1,6 @@
 import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
-import UAParser from 'ua-parser-js'
+import { UAParser } from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
