@@ -4,3 +4,4 @@ route = { pattern = "*/*", zone_id = "2a7cf4397b7f282a03a876e452530162" }
 main = "worker.js"
 usage_model = "unbound"
 compatibility_date = "2022-08-27"
+node_compat = true
