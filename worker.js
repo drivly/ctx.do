@@ -12,6 +12,7 @@ export default {
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     const ts = Date.now()
     const time = new Date(ts).toISOString()
+    const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
 
     let authenticated = false
     const token = req.cookies?.['__Session-worker.auth.providers-token']
@@ -64,6 +65,8 @@ export default {
           country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
           continent: continents[req.cf.continent],
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
+          timezone,
+          localTime,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
           trustScore: req.cf?.botManagement?.score,
