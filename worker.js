@@ -16,15 +16,17 @@ export default {
     let authenticated = false
     const token = req.cookies?.['__Session-worker.auth.providers-token']
     let jwt = null
-    try {
-      jwt = hashes[token]
-      if (!jwt) {
-        jwt = await jwtVerify(token, new TextEncoder().encode(sha1(env.JWT_SECRET + hostname)))
-        hashes[token] = jwt
+    if (token) {
+      try {
+        jwt = hashes[token]
+        if (!jwt) {
+          jwt = await jwtVerify(token, new TextEncoder().encode(sha1(env.JWT_SECRET + hostname)))
+          hashes[token] = jwt
+        }
+        authenticated = true
+      } catch {
+        authenticated = false
       }
-      authenticated = true
-    } catch {
-      authenticated = false
     }
 
     return new Response(
