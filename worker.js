@@ -1,6 +1,6 @@
 import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
-import uaParser from 'ua-parser-js'
+import UAParser from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
@@ -39,7 +39,7 @@ export default {
     )
     
     const userAgent = headers['user-agent']
-    const ua = new uaParser(userAgent)
+    const ua = new UAParser(userAgent)
 
     return new Response(
       JSON.stringify({
