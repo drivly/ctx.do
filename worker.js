@@ -77,6 +77,8 @@ export default {
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
           localTime,
           timezone,
+          edgeLocation: colo?.city,
+          edgeDistance,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
           trustScore: req.cf?.botManagement?.score,
