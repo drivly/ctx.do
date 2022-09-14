@@ -19,19 +19,19 @@ export default {
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
 
     const headers = Object.fromEntries(req.headers)
-
+    const authCookie = '__Session-worker.auth.providers-token='
     if (pathSegments[0] === 'oauthdocallback') {
       return new Response(null, {
         status: 302,
         headers: {
           location: pathname.slice(pathSegments[0].length + pathSegments[1].length + 3),
-          "Set-Cookie": `__Session-worker.auth.providers-token=${pathSegments[1]}; expires=2147483647; path=/;`,
+          "Set-Cookie": `${authCookie}${pathSegments[1]}; expires=2147483647; path=/;`,
         }
       })
     }
 
     let authenticated = false
-    const token = req.cookies?.['__Session-worker.auth.providers-token']
+    const token = req.headers.get('cookie').split(';').find(c => c.includes(authCookie))?.trim()?.slice(authCookie.length)
     let jwt = null
     if (token) {
       try {
