@@ -1,4 +1,5 @@
 import { jwtVerify } from 'jose'
+import { getDistance } from 'geolib'
 
 const interactionCounter = {}
 const hashes = {}
@@ -7,7 +8,7 @@ export default {
   fetch: async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
     const { url, cf, method } = req
-    const { timezone } = cf
+    const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
@@ -28,6 +29,11 @@ export default {
     } catch {
       authenticated = false
     }
+    
+    const colo = locations.find((loc) => loc.iata === req.cf.colo)
+    const edgeDistance = Math.round(
+      getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
+    )
 
     return new Response(
       JSON.stringify({
@@ -44,7 +50,7 @@ export default {
           logout: origin + '/logout',
           repo: 'https://github.com/drivly/ctx.do',
         },
-        colo: locations.find((loc) => loc.iata === req.cf.colo),
+        colo,
         hostname, pathname, search, hash, origin,
         query: Object.fromEntries(searchParams),
         ts,
