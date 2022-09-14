@@ -11,6 +11,7 @@ export default {
     const { url, cf, method } = req
     const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
+    const pathSegments = pathname.slice(1).split('/')
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     const ts = Date.now()
@@ -59,6 +60,7 @@ export default {
         colo,
         hostname, pathname, search, hash, origin,
         query: Object.fromEntries(searchParams),
+        pathSegments,
         ts,
         time,
         body,
