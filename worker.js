@@ -8,7 +8,7 @@ export default {
     const ip = req.headers.get('CF-Connecting-IP')
     const { url, cf, method } = req
     const { timezone } = cf
-    const { origin, hostname } = new URL(url)
+    const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     const ts = Date.now()
@@ -45,6 +45,8 @@ export default {
           repo: 'https://github.com/drivly/ctx.do',
         },
         colo: locations.find((loc) => loc.iata === req.cf.colo),
+        hostname, pathname, search, hash, origin,
+        query: Object.fromEntries(searchParams),
         ts,
         time,
         body,
