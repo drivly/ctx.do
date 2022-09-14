@@ -1,5 +1,6 @@
 import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
+import uaParser from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
@@ -15,6 +16,8 @@ export default {
     const ts = Date.now()
     const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
+    
+    const headers = Object.fromEntries(req.headers)
 
     let authenticated = false
     const token = req.cookies?.['__Session-worker.auth.providers-token']
@@ -34,6 +37,9 @@ export default {
     const edgeDistance = Math.round(
       getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
     )
+    
+    const userAgent = headers['user-agent']
+    const ua = new uaParser(userAgent)
 
     return new Response(
       JSON.stringify({
@@ -58,9 +64,11 @@ export default {
         body,
         url,
         method,
+        userAgent,
+        ua,
         jwt: jwt || undefined,
         cf,
-        headers: Object.fromEntries(req.headers),
+        headers,
         user: {
           authenticated,
           jwt: jwt || undefined,
