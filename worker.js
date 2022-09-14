@@ -17,8 +17,18 @@ export default {
     const ts = Date.now()
     const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
-    
+
     const headers = Object.fromEntries(req.headers)
+
+    if (pathSegments[0] === 'oauthdocallback') {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: pathname.slice(pathSegments[0].length + pathSegments[1].length + 3),
+          "Set-Cookie": `__Session-worker.auth.providers-token=${pathSegments[1]}; expires=2147483647; path=/;`,
+        }
+      })
+    }
 
     let authenticated = false
     const token = req.cookies?.['__Session-worker.auth.providers-token']
@@ -35,12 +45,12 @@ export default {
         authenticated = false
       }
     }
-    
+
     const colo = locations.find((loc) => loc.iata === req.cf.colo)
     const edgeDistance = Math.round(
       getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
     )
-    
+
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
 
