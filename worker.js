@@ -1,4 +1,6 @@
 import { jwtVerify } from 'jose'
+import { getDistance } from 'geolib'
+import { UAParser } from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
@@ -7,11 +9,16 @@ export default {
   fetch: async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
     const { url, cf, method } = req
-    const { origin, hostname } = new URL(url)
+    const { timezone, latitude, longitude } = cf
+    const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
+    const pathSegments = pathname.slice(1).split('/')
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     const ts = Date.now()
     const time = new Date(ts).toISOString()
+    const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
+    
+    const headers = Object.fromEntries(req.headers)
 
     let authenticated = false
     const token = req.cookies?.['__Session-worker.auth.providers-token']
@@ -28,6 +35,14 @@ export default {
         authenticated = false
       }
     }
+    
+    const colo = locations.find((loc) => loc.iata === req.cf.colo)
+    const edgeDistance = Math.round(
+      getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
+    )
+    
+    const userAgent = headers['user-agent']
+    const ua = new UAParser(userAgent).getResult()
 
     return new Response(
       JSON.stringify({
@@ -44,14 +59,20 @@ export default {
           logout: origin + '/logout',
           repo: 'https://github.com/drivly/ctx.do',
         },
-        colo: locations.find((loc) => loc.iata === req.cf.colo),
+        colo,
+        hostname, pathname, search, hash, origin,
+        query: Object.fromEntries(searchParams),
+        pathSegments,
         ts,
         time,
         body,
         url,
         method,
+        userAgent,
+        ua,
+        jwt: jwt || undefined,
         cf,
-        headers: Object.fromEntries(req.headers),
+        headers,
         user: {
           authenticated,
           jwt: jwt || undefined,
@@ -66,6 +87,10 @@ export default {
           country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
           continent: continents[req.cf.continent],
           requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
+          localTime,
+          timezone,
+          edgeLocation: colo?.city,
+          edgeDistance,
           latencyMilliseconds: req.cf.clientTcpRtt,
           recentInteractions: interactionCounter[ip],
           trustScore: req.cf?.botManagement?.score,
