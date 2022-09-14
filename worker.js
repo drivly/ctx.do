@@ -7,6 +7,7 @@ export default {
   fetch: async (req, env) => {
     const ip = req.headers.get('CF-Connecting-IP')
     const { url, cf, method } = req
+    const { timezone } = cf
     const { origin, hostname } = new URL(url)
     const body = req.body ? await req.json() : undefined
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
