@@ -31,7 +31,7 @@ export default {
     }
 
     let authenticated = false
-    const token = req.headers.get('cookie').split(';').find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
+    const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
 
     console.log({ token })
     let jwt = null
