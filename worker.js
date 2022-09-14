@@ -14,7 +14,7 @@ export default {
     const time = new Date(ts).toISOString()
 
     let authenticated = false
-    const token = req.cookies['__Session-worker.auth.providers-token']
+    const token = req.cookies?.['__Session-worker.auth.providers-token']
     let jwt = null
     try {
       jwt = hashes[token]
