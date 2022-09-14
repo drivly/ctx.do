@@ -39,7 +39,7 @@ export default {
     )
     
     const userAgent = headers['user-agent']
-    const ua = new UAParser(userAgent)
+    const ua = new UAParser(userAgent).getResult()
 
     return new Response(
       JSON.stringify({
