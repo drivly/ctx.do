@@ -1,6 +1,7 @@
 import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
 import { UAParser } from 'ua-parser-js'
+import sha1 from 'sha1'
 
 const interactionCounter = {}
 const hashes = {}
@@ -12,7 +13,10 @@ export default {
     const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const pathSegments = pathname.slice(1).split('/')
-    const body = req.body ? await req.json() : undefined
+    let body = ''
+    try {
+      body = req.body ? await req.json() : undefined
+    } catch { body = undefined }
     interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
     const ts = Date.now()
     const time = new Date(ts).toISOString()
@@ -32,8 +36,6 @@ export default {
 
     let authenticated = false
     const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
-
-    console.log({ token })
     let jwt = null
     if (token) {
       try {
@@ -44,7 +46,7 @@ export default {
         }
         authenticated = true
       } catch (error) {
-        console.error(error)
+        console.error({ error })
         authenticated = false
       }
     }
