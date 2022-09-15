@@ -54,6 +54,8 @@ export default {
     const edgeDistance = Math.round(
       getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
     )
+    
+    const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
@@ -86,6 +88,7 @@ export default {
         ua,
         jwt: jwt || undefined,
         cf,
+        requestId,
         headers,
         user: {
           authenticated,
@@ -100,7 +103,7 @@ export default {
           region: req.cf.region,
           country: countries.find((loc) => loc.cca2 === req.cf.country)?.name,
           continent: continents[req.cf.continent],
-          requestId: req.headers.get('cf-ray') + '-' + req.cf.colo,
+          requestId,
           localTime,
           timezone,
           edgeLocation: colo?.city,
