@@ -13,6 +13,18 @@ export default {
     const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const pathSegments = pathname.slice(1).split('/')
+    const headers = Object.fromEntries(req.headers)
+    const authCookie = '__Session-worker.auth.providers-token='
+    if (pathSegments[0] === 'oauthdocallback') {
+      let location = pathname.slice(pathSegments[0].length + pathSegments[1].length + 3).replace(/(https?):\/([^\/])/, '$1://$2')
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location,
+          "Set-Cookie": `${authCookie}${pathSegments[1]}; expires=2147483647; path=/;`,
+        }
+      })
+    }
     let body = ''
     try {
       body = req.body ? await req.json() : undefined
@@ -21,18 +33,6 @@ export default {
     const ts = Date.now()
     const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
-    const headers = Object.fromEntries(req.headers)
-    const authCookie = '__Session-worker.auth.providers-token='
-    if (pathSegments[0] === 'oauthdocallback') {
-      let location = new URL(pathname.slice(pathSegments[0].length + pathSegments[1].length + 3), url)
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: location.pathname + location.search + location.hash,
-          "Set-Cookie": `${authCookie}${pathSegments[1]}; expires=2147483647; path=/;`,
-        }
-      })
-    }
 
     let authenticated = false
     const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
