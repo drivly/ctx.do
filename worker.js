@@ -93,7 +93,7 @@ export default {
         user: {
           authenticated,
           jwt: jwt || undefined,
-          plan: 'build',
+          plan: '👩‍💻 Build',
           ip,
           isp: req.cf.asOrganization,
           flag: flags[req.cf.country],
