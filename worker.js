@@ -21,14 +21,14 @@ export default {
     const ts = Date.now()
     const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
-
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
     if (pathSegments[0] === 'oauthdocallback') {
+      let location = new URL(pathname.slice(pathSegments[0].length + pathSegments[1].length + 3), url)
       return new Response(null, {
         status: 302,
         headers: {
-          location: pathname.slice(pathSegments[0].length + pathSegments[1].length + 3),
+          location: location.pathname + location.search + location.hash,
           "Set-Cookie": `${authCookie}${pathSegments[1]}; expires=2147483647; path=/;`,
         }
       })
@@ -47,7 +47,6 @@ export default {
         authenticated = true
       } catch (error) {
         console.error({ error })
-        authenticated = false
       }
     }
 
