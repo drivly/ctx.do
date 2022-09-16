@@ -82,7 +82,7 @@ export default {
         headers,
         user: {
           authenticated,
-          jwt: jwt || undefined,
+          profile: jwt?.payload?.profile || undefined,
           plan: '👩‍💻 Build',
           ip,
           isp: req.cf.asOrganization,
