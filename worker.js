@@ -15,16 +15,6 @@ export default {
     const pathSegments = pathname.slice(1).split('/')
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
-    if (pathSegments[0] === 'oauthdocallback') {
-      let location = pathname.slice(pathSegments[0].length + pathSegments[1].length + 3).replace(/(https?):\/([^\/])/, '$1://$2')
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location,
-          "Set-Cookie": `${authCookie}${pathSegments[1]}; expires=2147483647; path=/;`,
-        }
-      })
-    }
     let body = ''
     try {
       body = req.body ? await req.json() : undefined
@@ -54,7 +44,7 @@ export default {
     const edgeDistance = Math.round(
       getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
     )
-    
+
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
 
     const userAgent = headers['user-agent']
