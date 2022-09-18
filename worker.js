@@ -35,7 +35,7 @@ export default {
         console.error({ error })
       }
     } else if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
-      profile = env.APIKEYS.fetch(req).then(res => res.json())?.profile
+      profile = (await env.APIKEYS.fetch(req).then(res => res.json()))?.profile
     }
 
     const colo = locations.find((loc) => loc.iata === req.cf.colo)
