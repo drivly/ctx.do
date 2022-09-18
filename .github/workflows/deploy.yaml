@@ -15,8 +15,8 @@ jobs:
         run: 'yarn'
       - name: Run ESLint
         run: eslint . --ext .js,.jsx,.ts,.tsx
-      - name: Prettier Action
-        uses: creyD/prettier_action@v4.2'
+      - name: actionsx/prettier
+        uses: actionsx/prettier@v2
         with:
           samecommit: true
       - name: Publish
