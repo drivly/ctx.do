@@ -24,20 +24,18 @@ export default {
     const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
 
-    let authenticated = false
+    let profile = null
     const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
     let jwt = null
     if (token) {
       try {
-        jwt = hashes[token]
-        if (!jwt) {
-          jwt = await jwtVerify(token, new TextEncoder().encode(sha1(env.JWT_SECRET + hostname)))
-          hashes[token] = jwt
-        }
-        authenticated = true
+        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(sha1(env.JWT_SECRET + new URL(req.url).hostname))))
+        profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
       }
+    } else if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
+      profile = env.APIKEYS.fetch().then(res => res.json())?.profile
     }
 
     const colo = locations.find((loc) => loc.iata === req.cf.colo)
@@ -81,8 +79,8 @@ export default {
         requestId,
         headers,
         user: {
-          authenticated,
-          profile: jwt?.payload?.profile || undefined,
+          authenticated: profile !== null,
+          profile: profile || undefined,
           plan: '👩‍💻 Build',
           ip,
           isp: req.cf.asOrganization,
