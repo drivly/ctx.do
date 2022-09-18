@@ -14,7 +14,7 @@ jobs:
       - name: Get dependencies
         run: 'yarn'
       - name: Run ESLint
-        run: eslint . --ext .js,.jsx,.ts,.tsx
+        uses: stefanoeb/eslint-action@1.0.2
       - name: actionsx/prettier
         uses: actionsx/prettier@v2
         with:
