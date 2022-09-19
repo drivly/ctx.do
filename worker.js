@@ -1,7 +1,6 @@
 import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
 import { UAParser } from 'ua-parser-js'
-import sha1 from 'sha1'
 
 const interactionCounter = {}
 const hashes = {}
@@ -29,7 +28,7 @@ export default {
     let jwt = null
     if (token) {
       try {
-        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(sha1(env.JWT_SECRET + new URL(req.url).hostname))))
+        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(await crypto.subtle.digest('SHA-384', env.JWT_SECRET + new URL(req.url).hostname))))
         profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
