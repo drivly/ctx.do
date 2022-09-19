@@ -25,9 +25,10 @@ export default {
 
     let profile = null
     const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
+    let jwt = null
     if (token) {
       try {
-        const jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(await crypto.subtle.digest('SHA-384', env.JWT_SECRET + new URL(req.url).hostname))))
+        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(await crypto.subtle.digest('SHA-384', env.JWT_SECRET + new URL(req.url).hostname))))
         profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
