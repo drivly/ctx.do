@@ -28,7 +28,7 @@ export default {
     let jwt = null
     if (token) {
       try {
-        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new TextEncoder().encode(await crypto.subtle.digest('SHA-384', env.JWT_SECRET + new URL(req.url).hostname))))
+        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, await crypto.subtle.digest('SHA-384', new TextEncoder().encode(env.JWT_SECRET + new URL(req.url).hostname))))
         profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
