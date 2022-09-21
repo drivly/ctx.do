@@ -82,7 +82,7 @@ export default {
         user: {
           authenticated: profile !== null,
           profile: profile || undefined,
-          plan: '👩‍💻 Build',
+          plan: '🛠 Build',
           ip,
           isp: req.cf.asOrganization,
           flag: flags[req.cf.country],
