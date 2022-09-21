@@ -26,15 +26,17 @@ export default {
     let profile = null
     const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
     let jwt = null
-    if (token) {
+    if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
+      const userData = await env.APIKEYS.fetch(req).then(res => res.ok && res.json())
+      profile = userData?.profile || null
+    }
+    if (!profile && token) {
       try {
         jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new Uint8Array(await crypto.subtle.digest('SHA-384', new TextEncoder().encode(env.JWT_SECRET + new URL(req.url).hostname)))))
         profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
       }
-    } else if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
-      profile = (await env.APIKEYS.fetch(req).then(res => res.ok && res.json()))?.profile || null
     }
 
     const colo = locations.find((loc) => loc.iata === req.cf.colo)
