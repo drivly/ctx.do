@@ -12,6 +12,7 @@ export default {
     const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const pathSegments = pathname.slice(1).split('/')
+    const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
     let body = ''
@@ -69,6 +70,7 @@ export default {
         hostname, pathname, search, hash, origin,
         query: Object.fromEntries(searchParams),
         pathSegments,
+        pathOptions,
         ts,
         time,
         body,
