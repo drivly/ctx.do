@@ -32,7 +32,8 @@ export default {
     }
     if (!profile && token) {
       try {
-        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new Uint8Array(await crypto.subtle.digest('SHA-384', new TextEncoder().encode(env.JWT_SECRET + new URL(req.url).hostname)))))
+        const domain = new URL(req.url).hostname.replace(/.*([^.]+.[^.]+)$/, '$1')
+        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(env.JWT_SECRET + domain)))))
         profile = jwt?.payload?.profile
       } catch (error) {
         console.error({ error })
