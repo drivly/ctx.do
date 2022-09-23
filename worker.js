@@ -33,7 +33,7 @@ export default {
     }
     if (!profile && token) {
       try {
-        const domain = new URL(req.url).hostname.replace(/.*([^.]+.[^.]+)$/, '$1')
+        const domain = new URL(req.url).hostname.replace(/.*\.([^.]+.[^.]+)$/, '$1')
         jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(env.JWT_SECRET + domain))), { issuer: domain }))
         profile = jwt?.payload?.profile
       } catch (error) {
