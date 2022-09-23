@@ -52,62 +52,67 @@ export default {
     const ua = new UAParser(userAgent).getResult()
     const city = req.cf.city, region = req.cf.region, country = countries[req.cf.country]?.name, continent = continents[req.cf.continent]
     const location = `${city}, ${region}, ${country}, ${continent}`
-    return new Response(
-      JSON.stringify({
-        api: {
-          icon: '🌎',
-          name: 'ctx.do',
-          description: 'Context Enrichment',
-          url: 'https://ctx.do',
-          endpoints: {
-            context: 'https://ctx.do/api',
-          },
-          memberOf: 'https://apis.do/core',
-          login: origin + '/login',
-          logout: origin + '/logout',
-          repo: 'https://github.com/drivly/ctx.do',
+    const retval = JSON.stringify({
+      api: {
+        icon: '🌎',
+        name: 'ctx.do',
+        description: 'Context Enrichment',
+        url: 'https://ctx.do',
+        endpoints: {
+          context: 'https://ctx.do/api',
         },
-        colo,
-        hostname, pathname, search, hash, origin,
-        query: Object.fromEntries(searchParams),
-        pathSegments,
-        pathOptions,
-        ts,
-        time,
-        body,
-        url,
-        method,
-        userAgent,
-        ua,
-        jwt: jwt || undefined,
-        cf,
+        memberOf: 'https://apis.do/core',
+        login: origin + '/login',
+        logout: origin + '/logout',
+        repo: 'https://github.com/drivly/ctx.do',
+      },
+      colo,
+      hostname, pathname, search, hash, origin,
+      query: Object.fromEntries(searchParams),
+      pathSegments,
+      pathOptions,
+      ts,
+      time,
+      body,
+      url,
+      method,
+      userAgent,
+      ua,
+      jwt: jwt || undefined,
+      cf,
+      requestId,
+      headers,
+      user: {
+        authenticated: profile !== null,
+        profile: profile || undefined,
+        plan: '🛠 Build',
+        ip,
+        isp: req.cf.asOrganization,
+        flag: flags[req.cf.country],
+        zipcode: req.cf.postalCode,
+        location,
+        city,
+        metro: metros[req.cf.metroCode],
+        region,
+        country,
+        continent,
         requestId,
-        headers,
-        user: {
-          authenticated: profile !== null,
-          profile: profile || undefined,
-          plan: '🛠 Build',
-          ip,
-          isp: req.cf.asOrganization,
-          flag: flags[req.cf.country],
-          zipcode: req.cf.postalCode,
-          location,
-          city,
-          metro: metros[req.cf.metroCode],
-          region,
-          country,
-          continent,
-          requestId,
-          localTime,
-          timezone,
-          edgeLocation: colo?.city,
-          edgeDistance,
-          latencyMilliseconds: req.cf.clientTcpRtt,
-          recentInteractions: interactionCounter[ip],
-          trustScore: req.cf?.botManagement?.score,
-        },
-      }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } }
-    )
+        localTime,
+        timezone,
+        edgeLocation: colo?.city,
+        edgeDistance,
+        latencyMilliseconds: req.cf.clientTcpRtt,
+        recentInteractions: interactionCounter[ip],
+        trustScore: req.cf?.botManagement?.score,
+      },
+    }, null, 2)
+    return new Response(
+      method === 'HEAD' ? null : retval, {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'content-length': retval.length.toString()
+      }
+    })
   },
 }
 
