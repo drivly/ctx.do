@@ -43,7 +43,7 @@ export default {
 
     const colo = locations[req.cf.colo]
     const edgeDistance = Math.round(
-      getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / 1609
+      getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / (req.cf.country === 'US' ? 1609.344 : 1000)
     )
 
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
@@ -101,6 +101,7 @@ export default {
         timezone,
         edgeLocation: colo?.city,
         edgeDistance,
+        edgeUnit: req.cf.country === 'US' ? 'mi' : 'km',
         latencyMilliseconds: req.cf.clientTcpRtt,
         recentInteractions: interactionCounter[ip],
         trustScore: req.cf?.botManagement?.score,
