@@ -50,7 +50,8 @@ export default {
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
-
+    const city = req.cf.city, region = req.cf.region, country = countries[req.cf.country]?.name, continent = continents[req.cf.continent]
+    const location = `${city}, ${region}, ${country}, ${continent}`
     return new Response(
       JSON.stringify({
         api: {
@@ -90,11 +91,12 @@ export default {
           isp: req.cf.asOrganization,
           flag: flags[req.cf.country],
           zipcode: req.cf.postalCode,
-          city: req.cf.city,
+          location,
+          city,
           metro: metros[req.cf.metroCode],
-          region: req.cf.region,
-          country: countries[req.cf.country]?.name,
-          continent: continents[req.cf.continent],
+          region,
+          country,
+          continent,
           requestId,
           localTime,
           timezone,
