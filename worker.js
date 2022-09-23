@@ -108,10 +108,10 @@ export default {
     }, null, 2)
     return new Response(
       method === 'HEAD' ? null : retval, {
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'content-length': retval.length.toString()
-      }
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'x-content-length': retval.length.toString()
+        }
     })
   },
 }
