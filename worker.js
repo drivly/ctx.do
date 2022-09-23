@@ -93,7 +93,7 @@ export default {
           city: req.cf.city,
           metro: metros[req.cf.metroCode],
           region: req.cf.region,
-          country: countries[loc.cca2]?.name,
+          country: countries[req.cf.country]?.name,
           continent: continents[req.cf.continent],
           requestId,
           localTime,
