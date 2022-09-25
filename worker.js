@@ -53,7 +53,7 @@ export default {
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
     
     const newInstance = instanceId ? false : true
-    if (!instanceId) instanceId = requestId
+    if (!instanceId) instanceId = requestId.slice(11,4)
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
     const instanceDurationMilliseconds = ts - instanceCreated
