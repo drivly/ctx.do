@@ -119,7 +119,7 @@ export default {
         edgeDistanceKilometers : req.cf.country === 'US' ? undefined : edgeDistance,
         latencyMilliseconds: req.cf.clientTcpRtt,
         recentInteractions: interactionCounter[ip],
-        trustScore: req.cf?.botManagement?.score,
+        trustScore: profile ? 99 : req.cf?.botManagement?.score,
       },
     }, null, 2)
     return new Response(
