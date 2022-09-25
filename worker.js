@@ -115,7 +115,7 @@ export default {
         requestId,
         localTime,
         timezone,
-        browser: req.cf?.botManagement?.score > 40 ? (ua?.browser?.name : ua?.os?.name + ' ' + ua?.browser?.name) : undefined,
+        browser: (req.cf?.botManagement?.score > 40 && ua?.browser?.name) : ua?.os?.name + ' ' + ua?.browser?.name : undefined,
         edgeLocation: colo?.city,
         edgeDistanceMiles : req.cf.country === 'US' ? edgeDistance : undefined,
         edgeDistanceKilometers : req.cf.country === 'US' ? undefined : edgeDistance,
