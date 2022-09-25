@@ -97,6 +97,7 @@ export default {
       instanceRequests,
       instanceDurationMilliseconds,
       instanceDurationSeconds,
+      interactions: profile ? interactionCounter : undefined,
       headers,
       user: {
         authenticated: profile !== null,
