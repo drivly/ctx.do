@@ -103,9 +103,10 @@ export default {
       instanceCreatedBy,
       instanceStart,
       instanceCreated,
-      instanceRequests,
+      instanceDiff,
       instanceDurationMilliseconds,
       instanceDurationSeconds,
+      instanceRequests,
       instanceInteractions: profile ? interactionCounter : undefined,
       headers,
       user: {
