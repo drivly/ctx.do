@@ -5,6 +5,7 @@ import { UAParser } from 'ua-parser-js'
 const interactionCounter = {}
 const hashes = {}
 let instanceStart = undefined
+let instancePrefix = undefined
 let instanceCreatedBy = undefined
 let instanceCreated = undefined
 let instanceId = undefined
@@ -56,8 +57,9 @@ export default {
     
     const newInstance = instanceCreatedBy ? false : true
     if (!instanceCreatedBy) instanceCreatedBy = requestId
-    if (!instanceId) instanceId = instanceCreatedBy.slice(11,15)
-    if (!instanceStart) instanceStart = parseInt(instanceCreatedBy.slice(0,11), 16)
+    if (!instanceId) instanceId = instanceCreatedBy.slice(12,16)
+    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0,12)
+    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
     const instanceDiff =  parseInt(requestId.slice(0,11), 16) - instanceStart 
