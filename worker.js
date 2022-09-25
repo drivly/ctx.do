@@ -16,7 +16,7 @@ export default {
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const pathSegments = pathname.slice(1).split('/')
     const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
-    const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined)
+    const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined).filter(n => n)
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
     let body = ''
