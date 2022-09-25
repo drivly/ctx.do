@@ -54,7 +54,7 @@ export default {
     const newInstance = instanceCreatedBy ? false : true
     if (!instanceCreatedBy) instanceCreatedBy = requestId
     const instanceId = instanceCreatedBy.slice(11,15)
-    const instancePrefix = instanceCreatedBy.slice(0,11)
+    const instanceStart = parseInt(instanceCreatedBy.slice(0,11), 16)
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
     const instanceDurationMilliseconds = ts - instanceCreated
@@ -97,7 +97,7 @@ export default {
       newInstance,
       instanceId,
       instanceCreatedBy,
-      instancePrefix,
+      instanceStart,
       instanceCreated,
       instanceRequests,
       instanceDurationMilliseconds,
