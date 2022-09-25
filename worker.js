@@ -16,6 +16,7 @@ export default {
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
     const pathSegments = pathname.slice(1).split('/')
     const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
+    const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined)
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
     let body = ''
@@ -81,6 +82,7 @@ export default {
       query: Object.fromEntries(searchParams),
       pathSegments,
       pathOptions,
+      pathDefaults,
       ts,
       time,
       body,
@@ -115,7 +117,7 @@ export default {
         requestId,
         localTime,
         timezone,
-        browser: (req.cf?.botManagement?.score > 40 && ua?.browser?.name) : ua?.os?.name + ' ' + ua?.browser?.name : undefined,
+        browser: (req.cf?.botManagement?.score > 40 && ua?.browser?.name) ? ua?.os?.name + ' ' + ua?.browser?.name : undefined,
         edgeLocation: colo?.city,
         edgeDistanceMiles : req.cf.country === 'US' ? edgeDistance : undefined,
         edgeDistanceKilometers : req.cf.country === 'US' ? undefined : edgeDistance,
