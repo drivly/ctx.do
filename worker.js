@@ -51,11 +51,12 @@ export default {
 
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
     
-    const newInstance = instanceId ? undefined : true
+    const newInstance = instanceId ? false : true
     if (!instanceId) instanceId = requestId
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
-    const instanceDuration = ts - instanceCreated
+    const instanceDurationMilliseconds = ts - instanceCreated
+    const instanceDurationSeconds = instanceDurationMilliseconds / 1000
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
@@ -94,7 +95,8 @@ export default {
       instanceId,
       instanceCreated,
       instanceRequests,
-      instanceDuration,
+      instanceDurationMilliseconds,
+      instanceDurationSeconds,
       headers,
       user: {
         authenticated: profile !== null,
