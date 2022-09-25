@@ -4,6 +4,7 @@ import { UAParser } from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
+let instanceId = undefined
 
 export default {
   fetch: async (req, env) => {
@@ -47,6 +48,9 @@ export default {
     )
 
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
+    
+    const newInstance = instanceId ? undefined : true
+    if (!instanceId) instanceId = requestId
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
@@ -81,6 +85,8 @@ export default {
       jwt: jwt || undefined,
       cf,
       requestId,
+      newInstance,
+      instanceId,
       headers,
       user: {
         authenticated: profile !== null,
