@@ -56,7 +56,7 @@ export default {
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
     const instanceDurationMilliseconds = ts - instanceCreated
-    const instanceDurationSeconds = instanceDurationMilliseconds / 1000
+    const instanceDurationSeconds = Math.floor(instanceDurationMilliseconds / 1000)
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
@@ -97,7 +97,7 @@ export default {
       instanceRequests,
       instanceDurationMilliseconds,
       instanceDurationSeconds,
-      interactions: profile ? interactionCounter : undefined,
+      instanceInteractions: profile ? interactionCounter : undefined,
       headers,
       user: {
         authenticated: profile !== null,
@@ -115,6 +115,7 @@ export default {
         requestId,
         localTime,
         timezone,
+        browser: req.cf?.botManagement?.score > 40 ? (ua?.browser?.name : ua?.os?.name + ' ' + ua?.browser?.name) : undefined,
         edgeLocation: colo?.city,
         edgeDistanceMiles : req.cf.country === 'US' ? edgeDistance : undefined,
         edgeDistanceKilometers : req.cf.country === 'US' ? undefined : edgeDistance,
