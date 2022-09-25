@@ -5,6 +5,8 @@ import { UAParser } from 'ua-parser-js'
 const interactionCounter = {}
 const hashes = {}
 let instanceId = undefined
+let instanceCreated = undefined
+let instanceRequests = 0
 
 export default {
   fetch: async (req, env) => {
@@ -51,6 +53,9 @@ export default {
     
     const newInstance = instanceId ? undefined : true
     if (!instanceId) instanceId = requestId
+    instanceRequests = instanceRequests + 1
+    if (!instanceCreated) instanceCreated = ts
+    const instanceDuration = ts - instanceCreated
 
     const userAgent = headers['user-agent']
     const ua = new UAParser(userAgent).getResult()
@@ -87,6 +92,9 @@ export default {
       requestId,
       newInstance,
       instanceId,
+      instanceCreated,
+      instanceRequests,
+      instanceDuration,
       headers,
       user: {
         authenticated: profile !== null,
