@@ -4,8 +4,7 @@ import { UAParser } from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
-let instanceId = undefined
-let instanceCreated = undefined
+let instanceCreatedBy = undefined
 let instanceRequests = 0
 
 export default {
@@ -52,8 +51,10 @@ export default {
 
     const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
     
-    const newInstance = instanceId ? false : true
-    if (!instanceId) instanceId = requestId.slice(11,15)
+    const newInstance = instanceCreatedBy ? false : true
+    if (!instanceCreatedBy) instanceCreatedBy = requestId
+    const instanceId = instanceCreatedBy.slice(11,15)
+    const instancePrefix = instanceCreatedBy.slice(0,11)
     instanceRequests = instanceRequests + 1
     if (!instanceCreated) instanceCreated = ts
     const instanceDurationMilliseconds = ts - instanceCreated
@@ -95,6 +96,8 @@ export default {
       requestId,
       newInstance,
       instanceId,
+      instanceCreatedBy,
+      instancePrefix,
       instanceCreated,
       instanceRequests,
       instanceDurationMilliseconds,
