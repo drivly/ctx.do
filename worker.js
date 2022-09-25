@@ -103,6 +103,7 @@ export default {
       newInstance,
       instanceId,
       instanceCreatedBy,
+      instancePrefix,
       instanceStart,
       instanceCreated,
       instanceDiff,
