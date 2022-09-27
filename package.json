@@ -1,7 +1,7 @@
 {
   "name": "ctx.do",
   "module": "index.js",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Context Enrichment API",
   "homepage": "https://ctx.do",
   "author": {
