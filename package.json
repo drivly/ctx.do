@@ -1,9 +1,17 @@
 {
   "name": "ctx.do",
   "module": "worker.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Context Enrichment API",
+  "homepage": "https://ctx.do",
+  "author": {
+    "name": "Drivly",
+    "email": "opensource@driv.ly"
+  },
   "repository": "git@github.com:drivly/ctx.do.git",
+  "sponsor": {
+    "url": "https://driv.ly"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "wrangler dev worker.js",

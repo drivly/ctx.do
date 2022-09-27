@@ -33,9 +33,7 @@ Context Enrichment API
   "hash": "",
   "origin": "https://ctx.do",
   "query": {},
-  "pathSegments": [
-    "api"
-  ],
+  "pathSegments": ["api"],
   "ts": 1663155690538,
   "time": "2022-09-14T11:41:30.538Z",
   "url": "https://ctx.do/api",

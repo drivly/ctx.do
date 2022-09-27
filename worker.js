@@ -1,161 +1,213 @@
-import { jwtVerify } from 'jose'
-import { getDistance } from 'geolib'
-import { UAParser } from 'ua-parser-js'
+import { jwtVerify } from "jose";
+import { getDistance } from "geolib";
+import { UAParser } from "ua-parser-js";
 
-const interactionCounter = {}
-const hashes = {}
-let instanceStart = undefined
-let instancePrefix = undefined
-let instanceCreatedBy = undefined
-let instanceCreated = undefined
-let instanceId = undefined
-let instanceRequests = 0
+const interactionCounter = {};
+const hashes = {};
+let instanceStart = undefined;
+let instancePrefix = undefined;
+let instanceCreatedBy = undefined;
+let instanceCreated = undefined;
+let instanceId = undefined;
+let instanceRequests = 0;
 
 export default {
   fetch: async (req, env) => {
-    const ip = req.headers.get('CF-Connecting-IP')
-    const { url, cf, method } = req
-    const { timezone, latitude, longitude } = cf
-    const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
-    const pathSegments = decodeURI(pathname).slice(1).split('/')
-    const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
-    const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined).filter(n => n)
-    const hostSegments = hostname.split('.')
-    const [ tld, sld, ...subdomains ] = hostSegments.reverse()
-    const [ subdomain, subsubdomain ] = subdomains
-    const headers = Object.fromEntries(req.headers)
-    const authCookie = '__Session-worker.auth.providers-token='
-    let body = ''
+    const ip = req.headers.get("CF-Connecting-IP");
+    const { url, cf, method } = req;
+    const { timezone, latitude, longitude } = cf;
+    const { hostname, pathname, search, searchParams, hash, origin } = new URL(
+      url
+    );
+    const pathSegments = decodeURI(pathname).slice(1).split("/");
+    const pathOptions =
+      pathSegments[0] && pathSegments[0].includes("=")
+        ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
+        : undefined;
+    const pathDefaults = pathSegments
+      .map((segment) =>
+        segment.slice(0, 1) == ":" ? segment.slice(1) : undefined
+      )
+      .filter((n) => n);
+    const hostSegments = hostname.split(".");
+    const [tld, sld, ...subdomains] = hostSegments.reverse();
+    const [subdomain, subsubdomain] = subdomains;
+    const headers = Object.fromEntries(req.headers);
+    const authCookie = "__Session-worker.auth.providers-token=";
+    let body = "";
     try {
-      body = req.body ? await req.json() : undefined
-    } catch { body = undefined }
-    interactionCounter[ip] = interactionCounter[ip] ? interactionCounter[ip] + 1 : 1
-    const ts = Date.now()
-    const time = new Date(ts).toISOString()
-    const localTime = new Date(ts).toLocaleString("en-US", { timeZone: cf.timezone })
+      body = req.body ? await req.json() : undefined;
+    } catch {
+      body = undefined;
+    }
+    interactionCounter[ip] = interactionCounter[ip]
+      ? interactionCounter[ip] + 1
+      : 1;
+    const ts = Date.now();
+    const time = new Date(ts).toISOString();
+    const localTime = new Date(ts).toLocaleString("en-US", {
+      timeZone: cf.timezone,
+    });
 
-    let profile = null
-    const token = req.headers.get('cookie')?.split(';')?.find(c => c.trim().startsWith(authCookie))?.trim()?.slice(authCookie.length)
-    let jwt = null
-    if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
-      const userData = await env.APIKEYS.fetch(req).then(res => res.ok && res.json())
-      profile = userData?.profile || null
+    let profile = null;
+    const token = req.headers
+      .get("cookie")
+      ?.split(";")
+      ?.find((c) => c.trim().startsWith(authCookie))
+      ?.trim()
+      ?.slice(authCookie.length);
+    let jwt = null;
+    if (req.headers.get("x-api-key") || searchParams.get("apikey")) {
+      const userData = await env.APIKEYS.fetch(req).then(
+        (res) => res.ok && res.json()
+      );
+      profile = userData?.profile || null;
     }
     if (!profile && token) {
       try {
-        const domain = new URL(req.url).hostname.replace(/.*\.([^.]+.[^.]+)$/, '$1')
-        jwt = hashes[token] || (hashes[token] = await jwtVerify(token, new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(env.JWT_SECRET + domain))), { issuer: domain }))
-        profile = jwt?.payload?.profile
+        const domain = new URL(req.url).hostname.replace(
+          /.*\.([^.]+.[^.]+)$/,
+          "$1"
+        );
+        jwt =
+          hashes[token] ||
+          (hashes[token] = await jwtVerify(
+            token,
+            new Uint8Array(
+              await crypto.subtle.digest(
+                "SHA-512",
+                new TextEncoder().encode(env.JWT_SECRET + domain)
+              )
+            ),
+            { issuer: domain }
+          ));
+        profile = jwt?.payload?.profile;
       } catch (error) {
-        console.error({ error })
+        console.error({ error });
       }
     }
 
-    const colo = locations[req.cf.colo]
+    const colo = locations[req.cf.colo];
     const edgeDistance = Math.round(
-      getDistance({ latitude, longitude }, { latitude: colo?.lat, longitude: colo?.lon }) / (req.cf.country === 'US' ? 1609.344 : 1000)
-    )
+      getDistance(
+        { latitude, longitude },
+        { latitude: colo?.lat, longitude: colo?.lon }
+      ) / (req.cf.country === "US" ? 1609.344 : 1000)
+    );
 
-    const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
-    
-    const newInstance = instanceCreatedBy ? false : true
-    if (!instanceCreatedBy) instanceCreatedBy = requestId
-    if (!instanceId) instanceId = instanceCreatedBy.slice(12,16)
-    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0,12)
-    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
-    instanceRequests = instanceRequests + 1
-    if (!instanceCreated) instanceCreated = ts
-    const instanceDiff = parseInt(requestId.slice(0,12), 16) - instanceStart
-    const instanceDurationMilliseconds = ts - instanceCreated
-    const instanceDurationSeconds = Math.floor(instanceDurationMilliseconds / 1000)
+    const requestId = req.headers.get("cf-ray") + "-" + req.cf.colo;
 
-    const userAgent = headers['user-agent']
-    const ua = new UAParser(userAgent).getResult()
-    const city = req.cf.city, region = req.cf.region, country = countries[req.cf.country]?.name, continent = continents[req.cf.continent]
-    const location = `${city}, ${region}, ${country}, ${continent}`
-    const retval = JSON.stringify({
-      api: {
-        icon: '🌎',
-        name: 'ctx.do',
-        description: 'Context Enrichment',
-        url: 'https://ctx.do',
-        endpoints: {
-          context: 'https://ctx.do/api',
+    const newInstance = instanceCreatedBy ? false : true;
+    if (!instanceCreatedBy) instanceCreatedBy = requestId;
+    if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16);
+    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12);
+    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16);
+    instanceRequests = instanceRequests + 1;
+    if (!instanceCreated) instanceCreated = ts;
+    const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart;
+    const instanceDurationMilliseconds = ts - instanceCreated;
+    const instanceDurationSeconds = Math.floor(
+      instanceDurationMilliseconds / 1000
+    );
+
+    const userAgent = headers["user-agent"];
+    const ua = new UAParser(userAgent).getResult();
+    const city = req.cf.city,
+      region = req.cf.region,
+      country = countries[req.cf.country]?.name,
+      continent = continents[req.cf.continent];
+    const location = `${city}, ${region}, ${country}, ${continent}`;
+    const retval = JSON.stringify(
+      {
+        api: {
+          icon: "🌎",
+          name: "ctx.do",
+          description: "Context Enrichment",
+          url: "https://ctx.do",
+          endpoints: {
+            context: "https://ctx.do/api",
+          },
+          memberOf: "https://apis.do/core",
+          login: origin + "/login",
+          logout: origin + "/logout",
+          repo: "https://github.com/drivly/ctx.do",
         },
-        memberOf: 'https://apis.do/core',
-        login: origin + '/login',
-        logout: origin + '/logout',
-        repo: 'https://github.com/drivly/ctx.do',
-      },
-      colo,
-      hostname, pathname, search, hash, origin,
-      query: Object.fromEntries(searchParams),
-      pathSegments,
-      pathOptions,
-      pathDefaults,
-      hostSegments,
-      tld, 
-      sld,
-      subdomains,
-      subdomain, 
-      subsubdomain,
-      ts,
-      time,
-      body,
-      url,
-      method,
-      userAgent,
-      ua,
-      jwt: jwt || undefined,
-      cf,
-      requestId,
-      newInstance,
-      instanceId,
-      instanceCreatedBy,
-      instancePrefix,
-      instanceStart,
-      instanceCreated,
-      instanceDiff,
-      instanceDurationMilliseconds,
-      instanceDurationSeconds,
-      instanceRequests,
-      instanceInteractions: profile ? interactionCounter : undefined,
-      headers,
-      user: {
-        authenticated: profile !== null,
-        profile: profile || undefined,
-        plan: '🛠 Build',
-        browser: ua?.browser?.name,
-        os: ua?.os?.name,
-        ip,
-        isp: req.cf.asOrganization,
-        flag: flags[req.cf.country],
-        zipcode: req.cf.postalCode,
-        city,
-        metro: metros[req.cf.metroCode],
-        region,
-        country,
-        continent,
+        colo,
+        hostname,
+        pathname,
+        search,
+        hash,
+        origin,
+        query: Object.fromEntries(searchParams),
+        pathSegments,
+        pathOptions,
+        pathDefaults,
+        hostSegments,
+        tld,
+        sld,
+        subdomains,
+        subdomain,
+        subsubdomain,
+        ts,
+        time,
+        body,
+        url,
+        method,
+        userAgent,
+        ua,
+        jwt: jwt || undefined,
+        cf,
         requestId,
-        localTime,
-        timezone,
-        edgeLocation: colo?.city,
-        edgeDistanceMiles : req.cf.country === 'US' ? edgeDistance : undefined,
-        edgeDistanceKilometers : req.cf.country === 'US' ? undefined : edgeDistance,
-        latencyMilliseconds: req.cf.clientTcpRtt,
-        recentInteractions: interactionCounter[ip],
-        trustScore: profile ? 99 : req.cf?.botManagement?.score,
+        newInstance,
+        instanceId,
+        instanceCreatedBy,
+        instancePrefix,
+        instanceStart,
+        instanceCreated,
+        instanceDiff,
+        instanceDurationMilliseconds,
+        instanceDurationSeconds,
+        instanceRequests,
+        instanceInteractions: profile ? interactionCounter : undefined,
+        headers,
+        user: {
+          authenticated: profile !== null,
+          profile: profile || undefined,
+          plan: "🛠 Build",
+          browser: ua?.browser?.name,
+          os: ua?.os?.name,
+          ip,
+          isp: req.cf.asOrganization,
+          flag: flags[req.cf.country],
+          zipcode: req.cf.postalCode,
+          city,
+          metro: metros[req.cf.metroCode],
+          region,
+          country,
+          continent,
+          requestId,
+          localTime,
+          timezone,
+          edgeLocation: colo?.city,
+          edgeDistanceMiles: req.cf.country === "US" ? edgeDistance : undefined,
+          edgeDistanceKilometers:
+            req.cf.country === "US" ? undefined : edgeDistance,
+          latencyMilliseconds: req.cf.clientTcpRtt,
+          recentInteractions: interactionCounter[ip],
+          trustScore: profile ? 99 : req.cf?.botManagement?.score,
+        },
       },
-    }, null, 2)
-    return new Response(
-      method === 'HEAD' ? null : retval, {
-        headers: {
-          'content-type': 'application/json; charset=utf-8',
-          'x-content-length': retval.length.toString()
-        }
-    })
+      null,
+      2
+    );
+    return new Response(method === "HEAD" ? null : retval, {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "x-content-length": retval.length.toString(),
+      },
+    });
   },
-}
+};
 
 const locations = {
   TIA: {
@@ -164,7 +216,7 @@ const locations = {
     lon: 19.7206001282,
     cca2: "AL",
     region: "Europe",
-    city: "Tirana"
+    city: "Tirana",
   },
   ALG: {
     iata: "ALG",
@@ -172,7 +224,7 @@ const locations = {
     lon: 3.2154099941,
     cca2: "DZ",
     region: "Africa",
-    city: "Algiers"
+    city: "Algiers",
   },
   LAD: {
     iata: "LAD",
@@ -180,7 +232,7 @@ const locations = {
     lon: 13.2312002182,
     cca2: "AO",
     region: "Africa",
-    city: "Luanda"
+    city: "Luanda",
   },
   EZE: {
     iata: "EZE",
@@ -188,7 +240,7 @@ const locations = {
     lon: -58.5358,
     cca2: "AR",
     region: "South America",
-    city: "Buenos Aires"
+    city: "Buenos Aires",
   },
   COR: {
     iata: "COR",
@@ -196,7 +248,7 @@ const locations = {
     lon: -64.208333,
     cca2: "AR",
     region: "South America",
-    city: "Córdoba"
+    city: "Córdoba",
   },
   NQN: {
     iata: "NQN",
@@ -204,7 +256,7 @@ const locations = {
     lon: -68.1557006836,
     cca2: "AR",
     region: "South America",
-    city: "Neuquen"
+    city: "Neuquen",
   },
   EVN: {
     iata: "EVN",
@@ -212,7 +264,7 @@ const locations = {
     lon: 44.3959007263,
     cca2: "AM",
     region: "Middle East",
-    city: "Yerevan"
+    city: "Yerevan",
   },
   ADL: {
     iata: "ADL",
@@ -220,7 +272,7 @@ const locations = {
     lon: 138.5335637,
     cca2: "AU",
     region: "Oceania",
-    city: "Adelaide"
+    city: "Adelaide",
   },
   BNE: {
     iata: "BNE",
@@ -228,7 +280,7 @@ const locations = {
     lon: 153.117004394,
     cca2: "AU",
     region: "Oceania",
-    city: "Brisbane"
+    city: "Brisbane",
   },
   CBR: {
     iata: "CBR",
@@ -236,7 +288,7 @@ const locations = {
     lon: 149.1950073242,
     cca2: "AU",
     region: "Oceania",
-    city: "Canberra"
+    city: "Canberra",
   },
   HBA: {
     iata: "HBA",
@@ -244,7 +296,7 @@ const locations = {
     lon: 147.331665,
     cca2: "AU",
     region: "Oceania",
-    city: "Hobart"
+    city: "Hobart",
   },
   MEL: {
     iata: "MEL",
@@ -252,7 +304,7 @@ const locations = {
     lon: 144.843002319,
     cca2: "AU",
     region: "Oceania",
-    city: "Melbourne"
+    city: "Melbourne",
   },
   PER: {
     iata: "PER",
@@ -260,7 +312,7 @@ const locations = {
     lon: 115.967002869,
     cca2: "AU",
     region: "Oceania",
-    city: "Perth"
+    city: "Perth",
   },
   SYD: {
     iata: "SYD",
@@ -268,7 +320,7 @@ const locations = {
     lon: 151.177001953,
     cca2: "AU",
     region: "Oceania",
-    city: "Sydney"
+    city: "Sydney",
   },
   VIE: {
     iata: "VIE",
@@ -276,7 +328,7 @@ const locations = {
     lon: 16.5697002411,
     cca2: "AT",
     region: "Europe",
-    city: "Vienna"
+    city: "Vienna",
   },
   LLK: {
     iata: "LLK",
@@ -284,7 +336,7 @@ const locations = {
     lon: 48.8180007935,
     cca2: "AZ",
     region: "Middle East",
-    city: "Astara"
+    city: "Astara",
   },
   GYD: {
     iata: "GYD",
@@ -292,7 +344,7 @@ const locations = {
     lon: 50.0466995239,
     cca2: "AZ",
     region: "Middle East",
-    city: "Baku"
+    city: "Baku",
   },
   BAH: {
     iata: "BAH",
@@ -300,7 +352,7 @@ const locations = {
     lon: 50.6335983276,
     cca2: "BH",
     region: "Middle East",
-    city: "Manama"
+    city: "Manama",
   },
   CGP: {
     iata: "CGP",
@@ -308,7 +360,7 @@ const locations = {
     lon: 91.8133011,
     cca2: "BD",
     region: "Asia Pacific",
-    city: "Chittagong"
+    city: "Chittagong",
   },
   DAC: {
     iata: "DAC",
@@ -316,7 +368,7 @@ const locations = {
     lon: 90.397783,
     cca2: "BD",
     region: "Asia Pacific",
-    city: "Dhaka"
+    city: "Dhaka",
   },
   JSR: {
     iata: "JSR",
@@ -324,7 +376,7 @@ const locations = {
     lon: 89.1607971191,
     cca2: "BD",
     region: "Asia Pacific",
-    city: "Jashore"
+    city: "Jashore",
   },
   MSQ: {
     iata: "MSQ",
@@ -332,7 +384,7 @@ const locations = {
     lon: 27.599,
     cca2: "BY",
     region: "Europe",
-    city: "Minsk"
+    city: "Minsk",
   },
   BRU: {
     iata: "BRU",
@@ -340,7 +392,7 @@ const locations = {
     lon: 4.4844398499,
     cca2: "BE",
     region: "Europe",
-    city: "Brussels"
+    city: "Brussels",
   },
   PBH: {
     iata: "PBH",
@@ -348,7 +400,7 @@ const locations = {
     lon: 89.6339,
     cca2: "BT",
     region: "Asia Pacific",
-    city: "Thimphu"
+    city: "Thimphu",
   },
   GBE: {
     iata: "GBE",
@@ -356,7 +408,7 @@ const locations = {
     lon: 25.9231,
     cca2: "BW",
     region: "Africa",
-    city: "Gaborone"
+    city: "Gaborone",
   },
   QWJ: {
     iata: "QWJ",
@@ -364,7 +416,7 @@ const locations = {
     lon: -47.334,
     cca2: "BR",
     region: "South America",
-    city: "Americana"
+    city: "Americana",
   },
   BEL: {
     iata: "BEL",
@@ -372,7 +424,7 @@ const locations = {
     lon: -48.5013,
     cca2: "BR",
     region: "South America",
-    city: "Belém"
+    city: "Belém",
   },
   CNF: {
     iata: "CNF",
@@ -380,7 +432,7 @@ const locations = {
     lon: -43.971944,
     cca2: "BR",
     region: "South America",
-    city: "Belo Horizonte"
+    city: "Belo Horizonte",
   },
   BNU: {
     iata: "BNU",
@@ -388,7 +440,7 @@ const locations = {
     lon: -49.07696,
     cca2: "BR",
     region: "South America",
-    city: "Blumenau"
+    city: "Blumenau",
   },
   BSB: {
     iata: "BSB",
@@ -396,7 +448,7 @@ const locations = {
     lon: -47.90859,
     cca2: "BR",
     region: "South America",
-    city: "Brasilia"
+    city: "Brasilia",
   },
   CFC: {
     iata: "CFC",
@@ -404,7 +456,7 @@ const locations = {
     lon: -51.0125,
     cca2: "BR",
     region: "South America",
-    city: "Cacador"
+    city: "Cacador",
   },
   VCP: {
     iata: "VCP",
@@ -412,7 +464,7 @@ const locations = {
     lon: -47.08576,
     cca2: "BR",
     region: "South America",
-    city: "Campinas"
+    city: "Campinas",
   },
   CGB: {
     iata: "CGB",
@@ -420,7 +472,7 @@ const locations = {
     lon: -56.09667,
     cca2: "BR",
     region: "South America",
-    city: "Cuiaba"
+    city: "Cuiaba",
   },
   CWB: {
     iata: "CWB",
@@ -428,7 +480,7 @@ const locations = {
     lon: -49.1758003235,
     cca2: "BR",
     region: "South America",
-    city: "Curitiba"
+    city: "Curitiba",
   },
   FLN: {
     iata: "FLN",
@@ -436,7 +488,7 @@ const locations = {
     lon: -48.5525016785,
     cca2: "BR",
     region: "South America",
-    city: "Florianopolis"
+    city: "Florianopolis",
   },
   FOR: {
     iata: "FOR",
@@ -444,7 +496,7 @@ const locations = {
     lon: -38.5326004028,
     cca2: "BR",
     region: "South America",
-    city: "Fortaleza"
+    city: "Fortaleza",
   },
   GYN: {
     iata: "GYN",
@@ -452,7 +504,7 @@ const locations = {
     lon: -49.26851,
     cca2: "BR",
     region: "South America",
-    city: "Goiania"
+    city: "Goiania",
   },
   ITJ: {
     iata: "ITJ",
@@ -460,7 +512,7 @@ const locations = {
     lon: -48.6727790833,
     cca2: "BR",
     region: "South America",
-    city: "Itajai"
+    city: "Itajai",
   },
   JOI: {
     iata: "JOI",
@@ -468,7 +520,7 @@ const locations = {
     lon: -48.846383,
     cca2: "BR",
     region: "South America",
-    city: "Joinville"
+    city: "Joinville",
   },
   JDO: {
     iata: "JDO",
@@ -476,7 +528,7 @@ const locations = {
     lon: -39.313,
     cca2: "BR",
     region: "South America",
-    city: "Juazeiro do Norte"
+    city: "Juazeiro do Norte",
   },
   MAO: {
     iata: "MAO",
@@ -484,7 +536,7 @@ const locations = {
     lon: -60.01949,
     cca2: "BR",
     region: "South America",
-    city: "Manaus"
+    city: "Manaus",
   },
   POA: {
     iata: "POA",
@@ -492,7 +544,7 @@ const locations = {
     lon: -51.1713981628,
     cca2: "BR",
     region: "South America",
-    city: "Porto Alegre"
+    city: "Porto Alegre",
   },
   RAO: {
     iata: "RAO",
@@ -500,7 +552,7 @@ const locations = {
     lon: -47.7766685486,
     cca2: "BR",
     region: "South America",
-    city: "Ribeirao Preto"
+    city: "Ribeirao Preto",
   },
   GIG: {
     iata: "GIG",
@@ -508,7 +560,7 @@ const locations = {
     lon: -43.2505569458,
     cca2: "BR",
     region: "South America",
-    city: "Rio de Janeiro"
+    city: "Rio de Janeiro",
   },
   SSA: {
     iata: "SSA",
@@ -516,7 +568,7 @@ const locations = {
     lon: -38.3224983215,
     cca2: "BR",
     region: "South America",
-    city: "Salvador"
+    city: "Salvador",
   },
   SJP: {
     iata: "SJP",
@@ -524,7 +576,7 @@ const locations = {
     lon: -49.378994,
     cca2: "BR",
     region: "South America",
-    city: "São José do Rio Preto"
+    city: "São José do Rio Preto",
   },
   GRU: {
     iata: "GRU",
@@ -532,7 +584,7 @@ const locations = {
     lon: -46.4730567932,
     cca2: "BR",
     region: "South America",
-    city: "São Paulo"
+    city: "São Paulo",
   },
   SOD: {
     iata: "SOD",
@@ -540,7 +592,7 @@ const locations = {
     lon: -46.63445,
     cca2: "BR",
     region: "South America",
-    city: "Sorocaba"
+    city: "Sorocaba",
   },
   UDI: {
     iata: "UDI",
@@ -548,7 +600,7 @@ const locations = {
     lon: -48.225276947,
     cca2: "BR",
     region: "South America",
-    city: "Uberlandia"
+    city: "Uberlandia",
   },
   BWN: {
     iata: "BWN",
@@ -556,7 +608,7 @@ const locations = {
     lon: 114.939819,
     cca2: "BN",
     region: "Asia Pacific",
-    city: "Bandar Seri Begawan"
+    city: "Bandar Seri Begawan",
   },
   SOF: {
     iata: "SOF",
@@ -564,7 +616,7 @@ const locations = {
     lon: 23.4114360809,
     cca2: "BG",
     region: "Europe",
-    city: "Sofia"
+    city: "Sofia",
   },
   OUA: {
     iata: "OUA",
@@ -572,7 +624,7 @@ const locations = {
     lon: -1.5124200583,
     cca2: "BF",
     region: "Africa",
-    city: "Ouagadougou"
+    city: "Ouagadougou",
   },
   PNH: {
     iata: "PNH",
@@ -580,7 +632,7 @@ const locations = {
     lon: 104.84400177,
     cca2: "KH",
     region: "Asia Pacific",
-    city: "Phnom Penh"
+    city: "Phnom Penh",
   },
   YYC: {
     iata: "YYC",
@@ -588,7 +640,7 @@ const locations = {
     lon: -114.019996643,
     cca2: "CA",
     region: "North America",
-    city: "Calgary"
+    city: "Calgary",
   },
   YVR: {
     iata: "YVR",
@@ -596,7 +648,7 @@ const locations = {
     lon: -123.183998108,
     cca2: "CA",
     region: "North America",
-    city: "Vancouver"
+    city: "Vancouver",
   },
   YWG: {
     iata: "YWG",
@@ -604,7 +656,7 @@ const locations = {
     lon: -97.2398986816,
     cca2: "CA",
     region: "North America",
-    city: "Winnipeg"
+    city: "Winnipeg",
   },
   YOW: {
     iata: "YOW",
@@ -612,7 +664,7 @@ const locations = {
     lon: -75.6691970825,
     cca2: "CA",
     region: "North America",
-    city: "Ottawa"
+    city: "Ottawa",
   },
   YYZ: {
     iata: "YYZ",
@@ -620,7 +672,7 @@ const locations = {
     lon: -79.6305999756,
     cca2: "CA",
     region: "North America",
-    city: "Toronto"
+    city: "Toronto",
   },
   YUL: {
     iata: "YUL",
@@ -628,7 +680,7 @@ const locations = {
     lon: -73.7407989502,
     cca2: "CA",
     region: "North America",
-    city: "Montréal"
+    city: "Montréal",
   },
   YXE: {
     iata: "YXE",
@@ -636,7 +688,7 @@ const locations = {
     lon: -106.699996948,
     cca2: "CA",
     region: "North America",
-    city: "Saskatoon"
+    city: "Saskatoon",
   },
   ARI: {
     iata: "ARI",
@@ -644,7 +696,7 @@ const locations = {
     lon: -70.338889,
     cca2: "CL",
     region: "South America",
-    city: "Arica"
+    city: "Arica",
   },
   CCP: {
     iata: "CCP",
@@ -652,7 +704,7 @@ const locations = {
     lon: -73.0444,
     cca2: "CL",
     region: "South America",
-    city: "Concepción"
+    city: "Concepción",
   },
   SCL: {
     iata: "SCL",
@@ -660,7 +712,7 @@ const locations = {
     lon: -70.7857971191,
     cca2: "CL",
     region: "South America",
-    city: "Santiago"
+    city: "Santiago",
   },
   BOG: {
     iata: "BOG",
@@ -668,7 +720,7 @@ const locations = {
     lon: -74.1469,
     cca2: "CO",
     region: "South America",
-    city: "Bogotá"
+    city: "Bogotá",
   },
   MDE: {
     iata: "MDE",
@@ -676,7 +728,7 @@ const locations = {
     lon: -75.4231,
     cca2: "CO",
     region: "South America",
-    city: "Medellín"
+    city: "Medellín",
   },
   SJO: {
     iata: "SJO",
@@ -684,7 +736,7 @@ const locations = {
     lon: -84.2088012695,
     cca2: "CR",
     region: "South America",
-    city: "San José"
+    city: "San José",
   },
   ZAG: {
     iata: "ZAG",
@@ -692,7 +744,7 @@ const locations = {
     lon: 16.0687999725,
     cca2: "HR",
     region: "Europe",
-    city: "Zagreb"
+    city: "Zagreb",
   },
   CUR: {
     iata: "CUR",
@@ -700,7 +752,7 @@ const locations = {
     lon: -68.9598007202,
     cca2: "CW",
     region: "South America",
-    city: "Willemstad"
+    city: "Willemstad",
   },
   LCA: {
     iata: "LCA",
@@ -708,7 +760,7 @@ const locations = {
     lon: 33.6249008179,
     cca2: "CY",
     region: "Europe",
-    city: "Nicosia"
+    city: "Nicosia",
   },
   PRG: {
     iata: "PRG",
@@ -716,7 +768,7 @@ const locations = {
     lon: 14.2600002289,
     cca2: "CZ",
     region: "Europe",
-    city: "Prague"
+    city: "Prague",
   },
   CPH: {
     iata: "CPH",
@@ -724,7 +776,7 @@ const locations = {
     lon: 12.6560001373,
     cca2: "DK",
     region: "Europe",
-    city: "Copenhagen"
+    city: "Copenhagen",
   },
   JIB: {
     iata: "JIB",
@@ -732,7 +784,7 @@ const locations = {
     lon: 43.1595001221,
     cca2: "DJ",
     region: "Africa",
-    city: "Djibouti"
+    city: "Djibouti",
   },
   SDQ: {
     iata: "SDQ",
@@ -740,7 +792,7 @@ const locations = {
     lon: -69.6688995361,
     cca2: "DO",
     region: "North America",
-    city: "Santo Domingo"
+    city: "Santo Domingo",
   },
   GYE: {
     iata: "GYE",
@@ -748,7 +800,7 @@ const locations = {
     lon: -79.8891,
     cca2: "EC",
     region: "South America",
-    city: "Guayaquil"
+    city: "Guayaquil",
   },
   UIO: {
     iata: "UIO",
@@ -756,7 +808,7 @@ const locations = {
     lon: -78.3575,
     cca2: "EC",
     region: "South America",
-    city: "Quito"
+    city: "Quito",
   },
   TLL: {
     iata: "TLL",
@@ -764,7 +816,7 @@ const locations = {
     lon: 24.8327999115,
     cca2: "EE",
     region: "Europe",
-    city: "Tallinn"
+    city: "Tallinn",
   },
   HEL: {
     iata: "HEL",
@@ -772,7 +824,7 @@ const locations = {
     lon: 24.963300705,
     cca2: "FI",
     region: "Europe",
-    city: "Helsinki"
+    city: "Helsinki",
   },
   MRS: {
     iata: "MRS",
@@ -780,7 +832,7 @@ const locations = {
     lon: 5.2214241028,
     cca2: "FR",
     region: "Europe",
-    city: "Marseille"
+    city: "Marseille",
   },
   CDG: {
     iata: "CDG",
@@ -788,7 +840,7 @@ const locations = {
     lon: 2.5499999523,
     cca2: "FR",
     region: "Europe",
-    city: "Paris"
+    city: "Paris",
   },
   TBS: {
     iata: "TBS",
@@ -796,7 +848,7 @@ const locations = {
     lon: 44.95470047,
     cca2: "GE",
     region: "Europe",
-    city: "Tbilisi"
+    city: "Tbilisi",
   },
   TXL: {
     iata: "TXL",
@@ -804,7 +856,7 @@ const locations = {
     lon: 13.2876996994,
     cca2: "DE",
     region: "Europe",
-    city: "Berlin"
+    city: "Berlin",
   },
   DUS: {
     iata: "DUS",
@@ -812,7 +864,7 @@ const locations = {
     lon: 6.7667798996,
     cca2: "DE",
     region: "Europe",
-    city: "Düsseldorf"
+    city: "Düsseldorf",
   },
   FRA: {
     iata: "FRA",
@@ -820,7 +872,7 @@ const locations = {
     lon: 8.543129921,
     cca2: "DE",
     region: "Europe",
-    city: "Frankfurt"
+    city: "Frankfurt",
   },
   HAM: {
     iata: "HAM",
@@ -828,7 +880,7 @@ const locations = {
     lon: 9.9882297516,
     cca2: "DE",
     region: "Europe",
-    city: "Hamburg"
+    city: "Hamburg",
   },
   MUC: {
     iata: "MUC",
@@ -836,7 +888,7 @@ const locations = {
     lon: 11.7861003876,
     cca2: "DE",
     region: "Europe",
-    city: "Munich"
+    city: "Munich",
   },
   ACC: {
     iata: "ACC",
@@ -844,7 +896,7 @@ const locations = {
     lon: -0.205874,
     cca2: "GH",
     region: "Africa",
-    city: "Accra"
+    city: "Accra",
   },
   ATH: {
     iata: "ATH",
@@ -852,7 +904,7 @@ const locations = {
     lon: 23.9444999695,
     cca2: "GR",
     region: "Europe",
-    city: "Athens"
+    city: "Athens",
   },
   SKG: {
     iata: "SKG",
@@ -860,7 +912,7 @@ const locations = {
     lon: 22.9708995819,
     cca2: "GR",
     region: "Europe",
-    city: "Thessaloniki"
+    city: "Thessaloniki",
   },
   GND: {
     iata: "GND",
@@ -868,7 +920,7 @@ const locations = {
     lon: -61.7882288,
     cca2: "GD",
     region: "South America",
-    city: "St. George's"
+    city: "St. George's",
   },
   GUM: {
     iata: "GUM",
@@ -876,7 +928,7 @@ const locations = {
     lon: 144.796005249,
     cca2: "GU",
     region: "Asia Pacific",
-    city: "Hagatna"
+    city: "Hagatna",
   },
   GUA: {
     iata: "GUA",
@@ -884,7 +936,7 @@ const locations = {
     lon: -90.5274963379,
     cca2: "GT",
     region: "North America",
-    city: "Guatemala City"
+    city: "Guatemala City",
   },
   GEO: {
     iata: "GEO",
@@ -892,7 +944,7 @@ const locations = {
     lon: -58.163756,
     cca2: "GY",
     region: "South America",
-    city: "Georgetown"
+    city: "Georgetown",
   },
   PAP: {
     iata: "PAP",
@@ -900,7 +952,7 @@ const locations = {
     lon: -72.2925033569,
     cca2: "HT",
     region: "North America",
-    city: "Port-au-Prince"
+    city: "Port-au-Prince",
   },
   TGU: {
     iata: "TGU",
@@ -908,7 +960,7 @@ const locations = {
     lon: -87.2172,
     cca2: "HN",
     region: "South America",
-    city: "Tegucigalpa"
+    city: "Tegucigalpa",
   },
   HKG: {
     iata: "HKG",
@@ -916,7 +968,7 @@ const locations = {
     lon: 113.915000916,
     cca2: "HK",
     region: "Asia Pacific",
-    city: "Hong Kong"
+    city: "Hong Kong",
   },
   BUD: {
     iata: "BUD",
@@ -924,7 +976,7 @@ const locations = {
     lon: 19.2555999756,
     cca2: "HU",
     region: "Europe",
-    city: "Budapest"
+    city: "Budapest",
   },
   KEF: {
     iata: "KEF",
@@ -932,7 +984,7 @@ const locations = {
     lon: -22.6056003571,
     cca2: "IS",
     region: "Europe",
-    city: "Reykjavík"
+    city: "Reykjavík",
   },
   AMD: {
     iata: "AMD",
@@ -940,7 +992,7 @@ const locations = {
     lon: 72.5714,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Ahmedabad"
+    city: "Ahmedabad",
   },
   BLR: {
     iata: "BLR",
@@ -948,7 +1000,7 @@ const locations = {
     lon: 76.6165937,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Bangalore"
+    city: "Bangalore",
   },
   BBI: {
     iata: "BBI",
@@ -956,7 +1008,7 @@ const locations = {
     lon: 85.8245,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Bhubaneswar"
+    city: "Bhubaneswar",
   },
   IXC: {
     iata: "IXC",
@@ -964,7 +1016,7 @@ const locations = {
     lon: 76.7884979248,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Chandigarh"
+    city: "Chandigarh",
   },
   MAA: {
     iata: "MAA",
@@ -972,7 +1024,7 @@ const locations = {
     lon: 80.1692962646,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Chennai"
+    city: "Chennai",
   },
   HYD: {
     iata: "HYD",
@@ -980,7 +1032,7 @@ const locations = {
     lon: 78.4298553467,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Hyderabad"
+    city: "Hyderabad",
   },
   KNU: {
     iata: "KNU",
@@ -988,7 +1040,7 @@ const locations = {
     lon: 80.3319,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Kanpur"
+    city: "Kanpur",
   },
   CCU: {
     iata: "CCU",
@@ -996,7 +1048,7 @@ const locations = {
     lon: 88.4349249,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Kolkata"
+    city: "Kolkata",
   },
   BOM: {
     iata: "BOM",
@@ -1004,7 +1056,7 @@ const locations = {
     lon: 72.8678970337,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Mumbai"
+    city: "Mumbai",
   },
   NAG: {
     iata: "NAG",
@@ -1012,7 +1064,7 @@ const locations = {
     lon: 79.0024702,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Nagpur"
+    city: "Nagpur",
   },
   DEL: {
     iata: "DEL",
@@ -1020,7 +1072,7 @@ const locations = {
     lon: 77.1031036377,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "New Delhi"
+    city: "New Delhi",
   },
   PAT: {
     iata: "PAT",
@@ -1028,7 +1080,7 @@ const locations = {
     lon: 85.0879974365,
     cca2: "IN",
     region: "Asia Pacific",
-    city: "Patna"
+    city: "Patna",
   },
   CGK: {
     iata: "CGK",
@@ -1036,7 +1088,7 @@ const locations = {
     lon: 106.6515118,
     cca2: "ID",
     region: "Asia Pacific",
-    city: "Jakarta"
+    city: "Jakarta",
   },
   JOG: {
     iata: "JOG",
@@ -1044,7 +1096,7 @@ const locations = {
     lon: 110.4319992065,
     cca2: "ID",
     region: "Asia Pacific",
-    city: "Yogyakarta"
+    city: "Yogyakarta",
   },
   BGW: {
     iata: "BGW",
@@ -1052,7 +1104,7 @@ const locations = {
     lon: 44.2346000671,
     cca2: "IQ",
     region: "Middle East",
-    city: "Baghdad"
+    city: "Baghdad",
   },
   BSR: {
     iata: "BSR",
@@ -1060,7 +1112,7 @@ const locations = {
     lon: 47.6621017456,
     cca2: "IQ",
     region: "Middle East",
-    city: "Basra"
+    city: "Basra",
   },
   EBL: {
     iata: "EBL",
@@ -1068,7 +1120,7 @@ const locations = {
     lon: 43.993,
     cca2: "IQ",
     region: "Middle East",
-    city: "Erbil"
+    city: "Erbil",
   },
   NJF: {
     iata: "NJF",
@@ -1076,7 +1128,7 @@ const locations = {
     lon: 44.404167,
     cca2: "IQ",
     region: "Middle East",
-    city: "Najaf"
+    city: "Najaf",
   },
   XNH: {
     iata: "XNH",
@@ -1084,7 +1136,7 @@ const locations = {
     lon: 46.0900993347,
     cca2: "IQ",
     region: "Middle East",
-    city: "Nasiriyah"
+    city: "Nasiriyah",
   },
   ORK: {
     iata: "ORK",
@@ -1092,7 +1144,7 @@ const locations = {
     lon: -8.491109848,
     cca2: "IE",
     region: "Europe",
-    city: "Cork"
+    city: "Cork",
   },
   DUB: {
     iata: "DUB",
@@ -1100,7 +1152,7 @@ const locations = {
     lon: -6.270070076,
     cca2: "IE",
     region: "Europe",
-    city: "Dublin"
+    city: "Dublin",
   },
   HFA: {
     iata: "HFA",
@@ -1108,7 +1160,7 @@ const locations = {
     lon: 34.96069,
     cca2: "IL",
     region: "Middle East",
-    city: "Haifa"
+    city: "Haifa",
   },
   TLV: {
     iata: "TLV",
@@ -1116,7 +1168,7 @@ const locations = {
     lon: 34.8866996765,
     cca2: "IL",
     region: "Middle East",
-    city: "Tel Aviv"
+    city: "Tel Aviv",
   },
   MXP: {
     iata: "MXP",
@@ -1124,7 +1176,7 @@ const locations = {
     lon: 8.7281103134,
     cca2: "IT",
     region: "Europe",
-    city: "Milan"
+    city: "Milan",
   },
   PMO: {
     iata: "PMO",
@@ -1132,7 +1184,7 @@ const locations = {
     lon: 13.31546,
     cca2: "IT",
     region: "Europe",
-    city: "Palermo"
+    city: "Palermo",
   },
   FCO: {
     iata: "FCO",
@@ -1140,7 +1192,7 @@ const locations = {
     lon: 12.2508001328,
     cca2: "IT",
     region: "Europe",
-    city: "Rome"
+    city: "Rome",
   },
   OKA: {
     iata: "OKA",
@@ -1148,7 +1200,7 @@ const locations = {
     lon: 127.646,
     cca2: "JP",
     region: "Asia Pacific",
-    city: "Naha"
+    city: "Naha",
   },
   KIX: {
     iata: "KIX",
@@ -1156,7 +1208,7 @@ const locations = {
     lon: 135.244003296,
     cca2: "JP",
     region: "Asia Pacific",
-    city: "Osaka"
+    city: "Osaka",
   },
   NRT: {
     iata: "NRT",
@@ -1164,7 +1216,7 @@ const locations = {
     lon: 140.386001587,
     cca2: "JP",
     region: "Asia Pacific",
-    city: "Tokyo"
+    city: "Tokyo",
   },
   AMM: {
     iata: "AMM",
@@ -1172,7 +1224,7 @@ const locations = {
     lon: 35.9931983948,
     cca2: "JO",
     region: "Middle East",
-    city: "Amman"
+    city: "Amman",
   },
   ALA: {
     iata: "ALA",
@@ -1180,7 +1232,7 @@ const locations = {
     lon: 77.0404968262,
     cca2: "KZ",
     region: "Asia Pacific",
-    city: "Almaty"
+    city: "Almaty",
   },
   MBA: {
     iata: "MBA",
@@ -1188,7 +1240,7 @@ const locations = {
     lon: 39.5942001343,
     cca2: "KE",
     region: "Africa",
-    city: "Mombasa"
+    city: "Mombasa",
   },
   NBO: {
     iata: "NBO",
@@ -1196,7 +1248,7 @@ const locations = {
     lon: 36.9277992249,
     cca2: "KE",
     region: "Africa",
-    city: "Nairobi"
+    city: "Nairobi",
   },
   ICN: {
     iata: "ICN",
@@ -1204,7 +1256,7 @@ const locations = {
     lon: 126.450996399,
     cca2: "KR",
     region: "Asia Pacific",
-    city: "Seoul"
+    city: "Seoul",
   },
   KWI: {
     iata: "KWI",
@@ -1212,7 +1264,7 @@ const locations = {
     lon: 47.9688987732,
     cca2: "KW",
     region: "Middle East",
-    city: "Kuwait City"
+    city: "Kuwait City",
   },
   VTE: {
     iata: "VTE",
@@ -1220,7 +1272,7 @@ const locations = {
     lon: 102.5683,
     cca2: "LA",
     region: "Asia Pacific",
-    city: "Vientiane"
+    city: "Vientiane",
   },
   RIX: {
     iata: "RIX",
@@ -1228,7 +1280,7 @@ const locations = {
     lon: 23.9710998535,
     cca2: "LV",
     region: "Europe",
-    city: "Riga"
+    city: "Riga",
   },
   BEY: {
     iata: "BEY",
@@ -1236,7 +1288,7 @@ const locations = {
     lon: 35.4883995056,
     cca2: "LB",
     region: "Middle East",
-    city: "Beirut"
+    city: "Beirut",
   },
   ROB: {
     iata: "ROB",
@@ -1244,7 +1296,7 @@ const locations = {
     lon: -10.35462,
     cca2: "LR",
     region: "Africa",
-    city: "Monrovia"
+    city: "Monrovia",
   },
   VNO: {
     iata: "VNO",
@@ -1252,7 +1304,7 @@ const locations = {
     lon: 25.2858009338,
     cca2: "LT",
     region: "Europe",
-    city: "Vilnius"
+    city: "Vilnius",
   },
   LUX: {
     iata: "LUX",
@@ -1260,7 +1312,7 @@ const locations = {
     lon: 6.211520195,
     cca2: "LU",
     region: "Europe",
-    city: "Luxembourg City"
+    city: "Luxembourg City",
   },
   MFM: {
     iata: "MFM",
@@ -1268,7 +1320,7 @@ const locations = {
     lon: 113.592002869,
     cca2: "MO",
     region: "Asia Pacific",
-    city: "Macau"
+    city: "Macau",
   },
   TNR: {
     iata: "TNR",
@@ -1276,7 +1328,7 @@ const locations = {
     lon: 47.53613,
     cca2: "MG",
     region: "Africa",
-    city: "Antananarivo"
+    city: "Antananarivo",
   },
   JHB: {
     iata: "JHB",
@@ -1284,7 +1336,7 @@ const locations = {
     lon: 103.665943,
     cca2: "MY",
     region: "Asia Pacific",
-    city: "Johor Bahru"
+    city: "Johor Bahru",
   },
   KUL: {
     iata: "KUL",
@@ -1292,7 +1344,7 @@ const locations = {
     lon: 101.709999084,
     cca2: "MY",
     region: "Asia Pacific",
-    city: "Kuala Lumpur"
+    city: "Kuala Lumpur",
   },
   MLE: {
     iata: "MLE",
@@ -1300,7 +1352,7 @@ const locations = {
     lon: 73.50888,
     cca2: "MV",
     region: "Asia Pacific",
-    city: "Male"
+    city: "Male",
   },
   MRU: {
     iata: "MRU",
@@ -1308,7 +1360,7 @@ const locations = {
     lon: 57.6836013794,
     cca2: "MU",
     region: "Africa",
-    city: "Port Louis"
+    city: "Port Louis",
   },
   MEX: {
     iata: "MEX",
@@ -1316,7 +1368,7 @@ const locations = {
     lon: -99.0720977783,
     cca2: "MX",
     region: "North America",
-    city: "Mexico City"
+    city: "Mexico City",
   },
   QRO: {
     iata: "QRO",
@@ -1324,7 +1376,7 @@ const locations = {
     lon: -100.185997009,
     cca2: "MX",
     region: "North America",
-    city: "Queretaro"
+    city: "Queretaro",
   },
   KIV: {
     iata: "KIV",
@@ -1332,7 +1384,7 @@ const locations = {
     lon: 28.9309997559,
     cca2: "MD",
     region: "Europe",
-    city: "Chișinău"
+    city: "Chișinău",
   },
   ULN: {
     iata: "ULN",
@@ -1340,7 +1392,7 @@ const locations = {
     lon: 106.766998291,
     cca2: "MN",
     region: "Asia Pacific",
-    city: "Ulaanbaatar"
+    city: "Ulaanbaatar",
   },
   CMN: {
     iata: "CMN",
@@ -1348,7 +1400,7 @@ const locations = {
     lon: -7.5899701118,
     cca2: "MA",
     region: "Africa",
-    city: "Casablanca"
+    city: "Casablanca",
   },
   MPM: {
     iata: "MPM",
@@ -1356,7 +1408,7 @@ const locations = {
     lon: 32.5726013184,
     cca2: "MZ",
     region: "Africa",
-    city: "Maputo"
+    city: "Maputo",
   },
   MDL: {
     iata: "MDL",
@@ -1364,7 +1416,7 @@ const locations = {
     lon: -74.63704,
     cca2: "MM",
     region: "Asia Pacific",
-    city: "Mandalay"
+    city: "Mandalay",
   },
   RGN: {
     iata: "RGN",
@@ -1372,7 +1424,7 @@ const locations = {
     lon: 96.1332015991,
     cca2: "MM",
     region: "Asia Pacific",
-    city: "Yangon"
+    city: "Yangon",
   },
   KTM: {
     iata: "KTM",
@@ -1380,7 +1432,7 @@ const locations = {
     lon: 85.3591003418,
     cca2: "NP",
     region: "Asia Pacific",
-    city: "Kathmandu"
+    city: "Kathmandu",
   },
   AMS: {
     iata: "AMS",
@@ -1388,7 +1440,7 @@ const locations = {
     lon: 4.7638897896,
     cca2: "NL",
     region: "Europe",
-    city: "Amsterdam"
+    city: "Amsterdam",
   },
   NOU: {
     iata: "NOU",
@@ -1396,7 +1448,7 @@ const locations = {
     lon: 166.212997436,
     cca2: "NC",
     region: "Oceania",
-    city: "Noumea"
+    city: "Noumea",
   },
   AKL: {
     iata: "AKL",
@@ -1404,7 +1456,7 @@ const locations = {
     lon: 174.792007446,
     cca2: "NZ",
     region: "Oceania",
-    city: "Auckland"
+    city: "Auckland",
   },
   CHC: {
     iata: "CHC",
@@ -1412,7 +1464,7 @@ const locations = {
     lon: 172.5319976807,
     cca2: "NZ",
     region: "Oceania",
-    city: "Christchurch"
+    city: "Christchurch",
   },
   LOS: {
     iata: "LOS",
@@ -1420,7 +1472,7 @@ const locations = {
     lon: 3.321160078,
     cca2: "NG",
     region: "Africa",
-    city: "Lagos"
+    city: "Lagos",
   },
   OSL: {
     iata: "OSL",
@@ -1428,7 +1480,7 @@ const locations = {
     lon: 11.100399971,
     cca2: "NO",
     region: "Europe",
-    city: "Oslo"
+    city: "Oslo",
   },
   MCT: {
     iata: "MCT",
@@ -1436,7 +1488,7 @@ const locations = {
     lon: 58.2844009399,
     cca2: "OM",
     region: "Middle East",
-    city: "Muscat"
+    city: "Muscat",
   },
   ISB: {
     iata: "ISB",
@@ -1444,7 +1496,7 @@ const locations = {
     lon: 73.0991973877,
     cca2: "PK",
     region: "Asia Pacific",
-    city: "Islamabad"
+    city: "Islamabad",
   },
   KHI: {
     iata: "KHI",
@@ -1452,7 +1504,7 @@ const locations = {
     lon: 67.1607971191,
     cca2: "PK",
     region: "Asia Pacific",
-    city: "Karachi"
+    city: "Karachi",
   },
   LHE: {
     iata: "LHE",
@@ -1460,7 +1512,7 @@ const locations = {
     lon: 74.4036026001,
     cca2: "PK",
     region: "Asia Pacific",
-    city: "Lahore"
+    city: "Lahore",
   },
   ZDM: {
     iata: "ZDM",
@@ -1468,7 +1520,7 @@ const locations = {
     lon: 35.0194,
     cca2: "PS",
     region: "Middle East",
-    city: "Ramallah"
+    city: "Ramallah",
   },
   PTY: {
     iata: "PTY",
@@ -1476,7 +1528,7 @@ const locations = {
     lon: -79.3834991455,
     cca2: "PA",
     region: "South America",
-    city: "Panama City"
+    city: "Panama City",
   },
   ASU: {
     iata: "ASU",
@@ -1484,7 +1536,7 @@ const locations = {
     lon: -57.5200004578,
     cca2: "PY",
     region: "South America",
-    city: "Asunción"
+    city: "Asunción",
   },
   LIM: {
     iata: "LIM",
@@ -1492,7 +1544,7 @@ const locations = {
     lon: -77.1143035889,
     cca2: "PE",
     region: "South America",
-    city: "Lima"
+    city: "Lima",
   },
   CGY: {
     iata: "CGY",
@@ -1500,7 +1552,7 @@ const locations = {
     lon: 124.611000061,
     cca2: "PH",
     region: "Asia Pacific",
-    city: "Cagayan de Oro"
+    city: "Cagayan de Oro",
   },
   CEB: {
     iata: "CEB",
@@ -1508,7 +1560,7 @@ const locations = {
     lon: 123.978996277,
     cca2: "PH",
     region: "Asia Pacific",
-    city: "Cebu"
+    city: "Cebu",
   },
   MNL: {
     iata: "MNL",
@@ -1516,7 +1568,7 @@ const locations = {
     lon: 121.019996643,
     cca2: "PH",
     region: "Asia Pacific",
-    city: "Manila"
+    city: "Manila",
   },
   WAW: {
     iata: "WAW",
@@ -1524,7 +1576,7 @@ const locations = {
     lon: 20.9671001434,
     cca2: "PL",
     region: "Europe",
-    city: "Warsaw"
+    city: "Warsaw",
   },
   LIS: {
     iata: "LIS",
@@ -1532,7 +1584,7 @@ const locations = {
     lon: -9.1359195709,
     cca2: "PT",
     region: "Europe",
-    city: "Lisbon"
+    city: "Lisbon",
   },
   DOH: {
     iata: "DOH",
@@ -1540,7 +1592,7 @@ const locations = {
     lon: 51.6137665,
     cca2: "QA",
     region: "Middle East",
-    city: "Doha"
+    city: "Doha",
   },
   RUN: {
     iata: "RUN",
@@ -1548,7 +1600,7 @@ const locations = {
     lon: 55.5102996826,
     cca2: "RE",
     region: "Africa",
-    city: "Saint-Denis"
+    city: "Saint-Denis",
   },
   OTP: {
     iata: "OTP",
@@ -1556,7 +1608,7 @@ const locations = {
     lon: 26.1021995544,
     cca2: "RO",
     region: "Europe",
-    city: "Bucharest"
+    city: "Bucharest",
   },
   KHV: {
     iata: "KHV",
@@ -1564,7 +1616,7 @@ const locations = {
     lon: 135.18800354,
     cca2: "RU",
     region: "Asia Pacific",
-    city: "Khabarovsk"
+    city: "Khabarovsk",
   },
   KJA: {
     iata: "KJA",
@@ -1572,7 +1624,7 @@ const locations = {
     lon: 92.8932,
     cca2: "RU",
     region: "Asia Pacific",
-    city: "Krasnoyarsk"
+    city: "Krasnoyarsk",
   },
   DME: {
     iata: "DME",
@@ -1580,7 +1632,7 @@ const locations = {
     lon: 37.9062995911,
     cca2: "RU",
     region: "Europe",
-    city: "Moscow"
+    city: "Moscow",
   },
   LED: {
     iata: "LED",
@@ -1588,7 +1640,7 @@ const locations = {
     lon: 30.2625007629,
     cca2: "RU",
     region: "Europe",
-    city: "Saint Petersburg"
+    city: "Saint Petersburg",
   },
   KLD: {
     iata: "KLD",
@@ -1596,7 +1648,7 @@ const locations = {
     lon: 35.9176,
     cca2: "RU",
     region: "Europe",
-    city: "Tver"
+    city: "Tver",
   },
   SVX: {
     iata: "SVX",
@@ -1604,7 +1656,7 @@ const locations = {
     lon: 60.6454,
     cca2: "RU",
     region: "Asia Pacific",
-    city: "Yekaterinburg"
+    city: "Yekaterinburg",
   },
   KGL: {
     iata: "KGL",
@@ -1612,7 +1664,7 @@ const locations = {
     lon: 30.1394996643,
     cca2: "RW",
     region: "Africa",
-    city: "Kigali"
+    city: "Kigali",
   },
   DMM: {
     iata: "DMM",
@@ -1620,7 +1672,7 @@ const locations = {
     lon: 49.7979011536,
     cca2: "SA",
     region: "Middle East",
-    city: "Dammam"
+    city: "Dammam",
   },
   JED: {
     iata: "JED",
@@ -1628,7 +1680,7 @@ const locations = {
     lon: 39.15650177,
     cca2: "SA",
     region: "Middle East",
-    city: "Jeddah"
+    city: "Jeddah",
   },
   RUH: {
     iata: "RUH",
@@ -1636,7 +1688,7 @@ const locations = {
     lon: 46.6987991333,
     cca2: "SA",
     region: "Middle East",
-    city: "Riyadh"
+    city: "Riyadh",
   },
   DKR: {
     iata: "DKR",
@@ -1644,7 +1696,7 @@ const locations = {
     lon: -17.4889771,
     cca2: "SN",
     region: "Africa",
-    city: "Dakar"
+    city: "Dakar",
   },
   BEG: {
     iata: "BEG",
@@ -1652,7 +1704,7 @@ const locations = {
     lon: 20.3090991974,
     cca2: "RS",
     region: "Europe",
-    city: "Belgrade"
+    city: "Belgrade",
   },
   SIN: {
     iata: "SIN",
@@ -1660,7 +1712,7 @@ const locations = {
     lon: 103.994003296,
     cca2: "SG",
     region: "Asia Pacific",
-    city: "Singapore"
+    city: "Singapore",
   },
   BTS: {
     iata: "BTS",
@@ -1668,7 +1720,7 @@ const locations = {
     lon: 17.1077,
     cca2: "SK",
     region: "Europe",
-    city: "Bratislava"
+    city: "Bratislava",
   },
   CPT: {
     iata: "CPT",
@@ -1676,7 +1728,7 @@ const locations = {
     lon: 18.6016998291,
     cca2: "ZA",
     region: "Africa",
-    city: "Cape Town"
+    city: "Cape Town",
   },
   DUR: {
     iata: "DUR",
@@ -1684,7 +1736,7 @@ const locations = {
     lon: 31.1197222222,
     cca2: "ZA",
     region: "Africa",
-    city: "Durban"
+    city: "Durban",
   },
   JNB: {
     iata: "JNB",
@@ -1692,7 +1744,7 @@ const locations = {
     lon: 28.25,
     cca2: "ZA",
     region: "Africa",
-    city: "Johannesburg"
+    city: "Johannesburg",
   },
   BCN: {
     iata: "BCN",
@@ -1700,7 +1752,7 @@ const locations = {
     lon: 2.0784599781,
     cca2: "ES",
     region: "Europe",
-    city: "Barcelona"
+    city: "Barcelona",
   },
   MAD: {
     iata: "MAD",
@@ -1708,7 +1760,7 @@ const locations = {
     lon: -3.56676,
     cca2: "ES",
     region: "Europe",
-    city: "Madrid"
+    city: "Madrid",
   },
   CMB: {
     iata: "CMB",
@@ -1716,7 +1768,7 @@ const locations = {
     lon: 79.8841018677,
     cca2: "LK",
     region: "Asia Pacific",
-    city: "Colombo"
+    city: "Colombo",
   },
   PBM: {
     iata: "PBM",
@@ -1724,7 +1776,7 @@ const locations = {
     lon: -55.187783,
     cca2: "SR",
     region: "South America",
-    city: "Paramaribo"
+    city: "Paramaribo",
   },
   GOT: {
     iata: "GOT",
@@ -1732,7 +1784,7 @@ const locations = {
     lon: 12.279800415,
     cca2: "SE",
     region: "Europe",
-    city: "Gothenburg"
+    city: "Gothenburg",
   },
   ARN: {
     iata: "ARN",
@@ -1740,7 +1792,7 @@ const locations = {
     lon: 17.9186000824,
     cca2: "SE",
     region: "Europe",
-    city: "Stockholm"
+    city: "Stockholm",
   },
   GVA: {
     iata: "GVA",
@@ -1748,7 +1800,7 @@ const locations = {
     lon: 6.1089501381,
     cca2: "CH",
     region: "Europe",
-    city: "Geneva"
+    city: "Geneva",
   },
   ZRH: {
     iata: "ZRH",
@@ -1756,7 +1808,7 @@ const locations = {
     lon: 8.5491695404,
     cca2: "CH",
     region: "Europe",
-    city: "Zurich"
+    city: "Zurich",
   },
   TPE: {
     iata: "TPE",
@@ -1764,7 +1816,7 @@ const locations = {
     lon: 121.233001709,
     cca2: "TW",
     region: "Asia Pacific",
-    city: "Taipei"
+    city: "Taipei",
   },
   DAR: {
     iata: "DAR",
@@ -1772,7 +1824,7 @@ const locations = {
     lon: 39.2025985718,
     cca2: "TZ",
     region: "Africa",
-    city: "Dar es Salaam"
+    city: "Dar es Salaam",
   },
   BKK: {
     iata: "BKK",
@@ -1780,7 +1832,7 @@ const locations = {
     lon: 100.747001648,
     cca2: "TH",
     region: "Asia Pacific",
-    city: "Bangkok"
+    city: "Bangkok",
   },
   CNX: {
     iata: "CNX",
@@ -1788,7 +1840,7 @@ const locations = {
     lon: 98.962600708,
     cca2: "TH",
     region: "Asia Pacific",
-    city: "Chiang Mai"
+    city: "Chiang Mai",
   },
   URT: {
     iata: "URT",
@@ -1796,7 +1848,7 @@ const locations = {
     lon: 99.135597229,
     cca2: "TH",
     region: "Asia Pacific",
-    city: "Surat Thani"
+    city: "Surat Thani",
   },
   TUN: {
     iata: "TUN",
@@ -1804,7 +1856,7 @@ const locations = {
     lon: 10.2271995544,
     cca2: "TN",
     region: "Africa",
-    city: "Tunis"
+    city: "Tunis",
   },
   IST: {
     iata: "IST",
@@ -1812,7 +1864,7 @@ const locations = {
     lon: 28.8145999908,
     cca2: "TR",
     region: "Europe",
-    city: "Istanbul"
+    city: "Istanbul",
   },
   KBP: {
     iata: "KBP",
@@ -1820,7 +1872,7 @@ const locations = {
     lon: 30.8946990967,
     cca2: "UA",
     region: "Europe",
-    city: "Kyiv"
+    city: "Kyiv",
   },
   DXB: {
     iata: "DXB",
@@ -1828,7 +1880,7 @@ const locations = {
     lon: 55.3643989563,
     cca2: "AE",
     region: "Middle East",
-    city: "Dubai"
+    city: "Dubai",
   },
   EDI: {
     iata: "EDI",
@@ -1836,7 +1888,7 @@ const locations = {
     lon: -3.3724999428,
     cca2: "GB",
     region: "Europe",
-    city: "Edinburgh"
+    city: "Edinburgh",
   },
   LHR: {
     iata: "LHR",
@@ -1844,7 +1896,7 @@ const locations = {
     lon: -0.4619410038,
     cca2: "GB",
     region: "Europe",
-    city: "London"
+    city: "London",
   },
   MAN: {
     iata: "MAN",
@@ -1852,7 +1904,7 @@ const locations = {
     lon: -2.2749500275,
     cca2: "GB",
     region: "Europe",
-    city: "Manchester"
+    city: "Manchester",
   },
   MGM: {
     iata: "MGM",
@@ -1860,7 +1912,7 @@ const locations = {
     lon: -86.39399719,
     cca2: "US",
     region: "North America",
-    city: "Montgomery"
+    city: "Montgomery",
   },
   PHX: {
     iata: "PHX",
@@ -1868,7 +1920,7 @@ const locations = {
     lon: -112.012001038,
     cca2: "US",
     region: "North America",
-    city: "Phoenix"
+    city: "Phoenix",
   },
   LAX: {
     iata: "LAX",
@@ -1876,7 +1928,7 @@ const locations = {
     lon: -118.4079971,
     cca2: "US",
     region: "North America",
-    city: "Los Angeles"
+    city: "Los Angeles",
   },
   SMF: {
     iata: "SMF",
@@ -1884,7 +1936,7 @@ const locations = {
     lon: -121.591003418,
     cca2: "US",
     region: "North America",
-    city: "Sacramento"
+    city: "Sacramento",
   },
   SAN: {
     iata: "SAN",
@@ -1892,7 +1944,7 @@ const locations = {
     lon: -117.190002441,
     cca2: "US",
     region: "North America",
-    city: "San Diego"
+    city: "San Diego",
   },
   SFO: {
     iata: "SFO",
@@ -1900,7 +1952,7 @@ const locations = {
     lon: -122.375,
     cca2: "US",
     region: "North America",
-    city: "San Francisco"
+    city: "San Francisco",
   },
   SJC: {
     iata: "SJC",
@@ -1908,7 +1960,7 @@ const locations = {
     lon: -121.929000855,
     cca2: "US",
     region: "North America",
-    city: "San Jose"
+    city: "San Jose",
   },
   DEN: {
     iata: "DEN",
@@ -1916,7 +1968,7 @@ const locations = {
     lon: -104.672996521,
     cca2: "US",
     region: "North America",
-    city: "Denver"
+    city: "Denver",
   },
   JAX: {
     iata: "JAX",
@@ -1924,7 +1976,7 @@ const locations = {
     lon: -81.6878967285,
     cca2: "US",
     region: "North America",
-    city: "Jacksonville"
+    city: "Jacksonville",
   },
   MIA: {
     iata: "MIA",
@@ -1932,7 +1984,7 @@ const locations = {
     lon: -80.2906036377,
     cca2: "US",
     region: "North America",
-    city: "Miami"
+    city: "Miami",
   },
   TLH: {
     iata: "TLH",
@@ -1940,7 +1992,7 @@ const locations = {
     lon: -84.3503036499,
     cca2: "US",
     region: "North America",
-    city: "Tallahassee"
+    city: "Tallahassee",
   },
   TPA: {
     iata: "TPA",
@@ -1948,7 +2000,7 @@ const locations = {
     lon: -82.533203125,
     cca2: "US",
     region: "North America",
-    city: "Tampa"
+    city: "Tampa",
   },
   ATL: {
     iata: "ATL",
@@ -1956,7 +2008,7 @@ const locations = {
     lon: -84.4281005859,
     cca2: "US",
     region: "North America",
-    city: "Atlanta"
+    city: "Atlanta",
   },
   HNL: {
     iata: "HNL",
@@ -1964,7 +2016,7 @@ const locations = {
     lon: -157.9219970703,
     cca2: "US",
     region: "North America",
-    city: "Honolulu"
+    city: "Honolulu",
   },
   ORD: {
     iata: "ORD",
@@ -1972,7 +2024,7 @@ const locations = {
     lon: -87.90480042,
     cca2: "US",
     region: "North America",
-    city: "Chicago"
+    city: "Chicago",
   },
   IND: {
     iata: "IND",
@@ -1980,7 +2032,7 @@ const locations = {
     lon: -86.2944030762,
     cca2: "US",
     region: "North America",
-    city: "Indianapolis"
+    city: "Indianapolis",
   },
   BOS: {
     iata: "BOS",
@@ -1988,7 +2040,7 @@ const locations = {
     lon: -71.00520325,
     cca2: "US",
     region: "North America",
-    city: "Boston"
+    city: "Boston",
   },
   DTW: {
     iata: "DTW",
@@ -1996,7 +2048,7 @@ const locations = {
     lon: -83.3534011841,
     cca2: "US",
     region: "North America",
-    city: "Detroit"
+    city: "Detroit",
   },
   MSP: {
     iata: "MSP",
@@ -2004,7 +2056,7 @@ const locations = {
     lon: -93.2218017578,
     cca2: "US",
     region: "North America",
-    city: "Minneapolis"
+    city: "Minneapolis",
   },
   MCI: {
     iata: "MCI",
@@ -2012,7 +2064,7 @@ const locations = {
     lon: -94.7138977051,
     cca2: "US",
     region: "North America",
-    city: "Kansas City"
+    city: "Kansas City",
   },
   STL: {
     iata: "STL",
@@ -2020,7 +2072,7 @@ const locations = {
     lon: -90.3700027466,
     cca2: "US",
     region: "North America",
-    city: "St. Louis"
+    city: "St. Louis",
   },
   OMA: {
     iata: "OMA",
@@ -2028,7 +2080,7 @@ const locations = {
     lon: -95.8940963745,
     cca2: "US",
     region: "North America",
-    city: "Omaha"
+    city: "Omaha",
   },
   LAS: {
     iata: "LAS",
@@ -2036,7 +2088,7 @@ const locations = {
     lon: -115.1520004,
     cca2: "US",
     region: "North America",
-    city: "Las Vegas"
+    city: "Las Vegas",
   },
   EWR: {
     iata: "EWR",
@@ -2044,7 +2096,7 @@ const locations = {
     lon: -74.1687011719,
     cca2: "US",
     region: "North America",
-    city: "Newark"
+    city: "Newark",
   },
   BUF: {
     iata: "BUF",
@@ -2052,7 +2104,7 @@ const locations = {
     lon: -78.73220062,
     cca2: "US",
     region: "North America",
-    city: "Buffalo"
+    city: "Buffalo",
   },
   CLT: {
     iata: "CLT",
@@ -2060,7 +2112,7 @@ const locations = {
     lon: -80.9430999756,
     cca2: "US",
     region: "North America",
-    city: "Charlotte"
+    city: "Charlotte",
   },
   CMH: {
     iata: "CMH",
@@ -2068,7 +2120,7 @@ const locations = {
     lon: -82.8918991089,
     cca2: "US",
     region: "North America",
-    city: "Columbus"
+    city: "Columbus",
   },
   PDX: {
     iata: "PDX",
@@ -2076,7 +2128,7 @@ const locations = {
     lon: -122.5979996,
     cca2: "US",
     region: "North America",
-    city: "Portland"
+    city: "Portland",
   },
   PHL: {
     iata: "PHL",
@@ -2084,7 +2136,7 @@ const locations = {
     lon: -75.2410964966,
     cca2: "US",
     region: "North America",
-    city: "Philadelphia"
+    city: "Philadelphia",
   },
   PIT: {
     iata: "PIT",
@@ -2092,7 +2144,7 @@ const locations = {
     lon: -80.23290253,
     cca2: "US",
     region: "North America",
-    city: "Pittsburgh"
+    city: "Pittsburgh",
   },
   MEM: {
     iata: "MEM",
@@ -2100,7 +2152,7 @@ const locations = {
     lon: -89.9766998291,
     cca2: "US",
     region: "North America",
-    city: "Memphis"
+    city: "Memphis",
   },
   DFW: {
     iata: "DFW",
@@ -2108,7 +2160,7 @@ const locations = {
     lon: -97.0380020142,
     cca2: "US",
     region: "North America",
-    city: "Dallas"
+    city: "Dallas",
   },
   IAH: {
     iata: "IAH",
@@ -2116,7 +2168,7 @@ const locations = {
     lon: -95.3414001465,
     cca2: "US",
     region: "North America",
-    city: "Houston"
+    city: "Houston",
   },
   MFE: {
     iata: "MFE",
@@ -2124,7 +2176,7 @@ const locations = {
     lon: -98.23860168,
     cca2: "US",
     region: "North America",
-    city: "McAllen"
+    city: "McAllen",
   },
   SLC: {
     iata: "SLC",
@@ -2132,7 +2184,7 @@ const locations = {
     lon: -111.977996826,
     cca2: "US",
     region: "North America",
-    city: "Salt Lake City"
+    city: "Salt Lake City",
   },
   IAD: {
     iata: "IAD",
@@ -2140,7 +2192,7 @@ const locations = {
     lon: -77.45580292,
     cca2: "US",
     region: "North America",
-    city: "Ashburn"
+    city: "Ashburn",
   },
   ORF: {
     iata: "ORF",
@@ -2148,7 +2200,7 @@ const locations = {
     lon: -76.2012023926,
     cca2: "US",
     region: "North America",
-    city: "Norfolk"
+    city: "Norfolk",
   },
   RIC: {
     iata: "RIC",
@@ -2156,7 +2208,7 @@ const locations = {
     lon: -77.3197021484,
     cca2: "US",
     region: "North America",
-    city: "Richmond"
+    city: "Richmond",
   },
   SEA: {
     iata: "SEA",
@@ -2164,7 +2216,7 @@ const locations = {
     lon: -122.308998108,
     cca2: "US",
     region: "North America",
-    city: "Seattle"
+    city: "Seattle",
   },
   TAS: {
     iata: "TAS",
@@ -2172,7 +2224,7 @@ const locations = {
     lon: 69.2811965942,
     cca2: "UZ",
     region: "Asia Pacific",
-    city: "Tashkent"
+    city: "Tashkent",
   },
   HAN: {
     iata: "HAN",
@@ -2180,7 +2232,7 @@ const locations = {
     lon: 105.806999206,
     cca2: "VN",
     region: "Asia Pacific",
-    city: "Hanoi"
+    city: "Hanoi",
   },
   SGN: {
     iata: "SGN",
@@ -2188,7 +2240,7 @@ const locations = {
     lon: 106.652000427,
     cca2: "VN",
     region: "Asia Pacific",
-    city: "Ho Chi Minh City"
+    city: "Ho Chi Minh City",
   },
   HRE: {
     iata: "HRE",
@@ -2196,623 +2248,628 @@ const locations = {
     lon: 31.0928001404,
     cca2: "ZW",
     region: "Africa",
-    city: "Harare"
-  }
-}
+    city: "Harare",
+  },
+};
 
 const flags = {
-  "AF": "🇦🇫",
-  "AO": "🇦🇴",
-  "AL": "🇦🇱",
-  "AD": "🇦🇩",
-  "AE": "🇦🇪",
-  "AR": "🇦🇷",
-  "AM": "🇦🇲",
-  "AG": "🇦🇬",
-  "AU": "🇦🇺",
-  "AT": "🇦🇹",
-  "AZ": "🇦🇿",
-  "BI": "🇧🇮",
-  "BE": "🇧🇪",
-  "BJ": "🇧🇯",
-  "BF": "🇧🇫",
-  "BD": "🇧🇩",
-  "BG": "🇧🇬",
-  "BH": "🇧🇭",
-  "BS": "🇧🇸",
-  "BA": "🇧🇦",
-  "BY": "🇧🇾",
-  "BZ": "🇧🇿",
-  "BO": "🇧🇴",
-  "BR": "🇧🇷",
-  "BB": "🇧🇧",
-  "BN": "🇧🇳",
-  "BT": "🇧🇹",
-  "BW": "🇧🇼",
-  "CF": "🇨🇫",
-  "CA": "🇨🇦",
-  "CH": "🇨🇭",
-  "CL": "🇨🇱",
-  "CN": "🇨🇳",
-  "CI": "🇨🇮",
-  "CM": "🇨🇲",
-  "CD": "🇨🇩",
-  "CG": "🇨🇬",
-  "CO": "🇨🇴",
-  "KM": "🇰🇲",
-  "CV": "🇨🇻",
-  "CR": "🇨🇷",
-  "CU": "🇨🇺",
-  "CY": "🇨🇾",
-  "CZ": "🇨🇿",
-  "DE": "🇩🇪",
-  "DJ": "🇩🇯",
-  "DM": "🇩🇲",
-  "DK": "🇩🇰",
-  "DO": "🇩🇴",
-  "DZ": "🇩🇿",
-  "EC": "🇪🇨",
-  "EG": "🇪🇬",
-  "ER": "🇪🇷",
-  "ES": "🇪🇸",
-  "EE": "🇪🇪",
-  "ET": "🇪🇹",
-  "FI": "🇫🇮",
-  "FJ": "🇫🇯",
-  "FR": "🇫🇷",
-  "FM": "🇫🇲",
-  "GA": "🇬🇦",
-  "GB": "🇬🇧",
-  "GE": "🇬🇪",
-  "GH": "🇬🇭",
-  "GN": "🇬🇳",
-  "GM": "🇬🇲",
-  "GW": "🇬🇼",
-  "GQ": "🇬🇶",
-  "GR": "🇬🇷",
-  "GD": "🇬🇩",
-  "GT": "🇬🇹",
-  "GY": "🇬🇾",
-  "HN": "🇭🇳",
-  "HR": "🇭🇷",
-  "HT": "🇭🇹",
-  "HU": "🇭🇺",
-  "ID": "🇮🇩",
-  "IN": "🇮🇳",
-  "IE": "🇮🇪",
-  "IR": "🇮🇷",
-  "IQ": "🇮🇶",
-  "IS": "🇮🇸",
-  "IL": "🇮🇱",
-  "IT": "🇮🇹",
-  "JM": "🇯🇲",
-  "JO": "🇯🇴",
-  "JP": "🇯🇵",
-  "KZ": "🇰🇿",
-  "KE": "🇰🇪",
-  "KG": "🇰🇬",
-  "KH": "🇰🇭",
-  "KI": "🇰🇮",
-  "KN": "🇰🇳",
-  "KR": "🇰🇷",
-  "KW": "🇰🇼",
-  "LA": "🇱🇦",
-  "LB": "🇱🇧",
-  "LR": "🇱🇷",
-  "LY": "🇱🇾",
-  "LC": "🇱🇨",
-  "LI": "🇱🇮",
-  "LK": "🇱🇰",
-  "LS": "🇱🇸",
-  "LT": "🇱🇹",
-  "LU": "🇱🇺",
-  "LV": "🇱🇻",
-  "MA": "🇲🇦",
-  "MC": "🇲🇨",
-  "MD": "🇲🇩",
-  "MG": "🇲🇬",
-  "MV": "🇲🇻",
-  "MX": "🇲🇽",
-  "MH": "🇲🇭",
-  "MK": "🇲🇰",
-  "ML": "🇲🇱",
-  "MT": "🇲🇹",
-  "MM": "🇲🇲",
-  "ME": "🇲🇪",
-  "MN": "🇲🇳",
-  "MZ": "🇲🇿",
-  "MR": "🇲🇷",
-  "MU": "🇲🇺",
-  "MW": "🇲🇼",
-  "MY": "🇲🇾",
-  "NA": "🇳🇦",
-  "NE": "🇳🇪",
-  "NG": "🇳🇬",
-  "NI": "🇳🇮",
-  "NL": "🇳🇱",
-  "NO": "🇳🇴",
-  "NP": "🇳🇵",
-  "NR": "🇳🇷",
-  "NZ": "🇳🇿",
-  "OM": "🇴🇲",
-  "PK": "🇵🇰",
-  "PA": "🇵🇦",
-  "PE": "🇵🇪",
-  "PH": "🇵🇭",
-  "PW": "🇵🇼",
-  "PG": "🇵🇬",
-  "PL": "🇵🇱",
-  "KP": "🇰🇵",
-  "PT": "🇵🇹",
-  "PY": "🇵🇾",
-  "QA": "🇶🇦",
-  "RO": "🇷🇴",
-  "RU": "🇷🇺",
-  "RW": "🇷🇼",
-  "SA": "🇸🇦",
-  "SD": "🇸🇩",
-  "SN": "🇸🇳",
-  "SG": "🇸🇬",
-  "SB": "🇸🇧",
-  "SL": "🇸🇱",
-  "SV": "🇸🇻",
-  "SM": "🇸🇲",
-  "SO": "🇸🇴",
-  "RS": "🇷🇸",
-  "SS": "🇸🇸",
-  "ST": "🇸🇹",
-  "SR": "🇸🇷",
-  "SK": "🇸🇰",
-  "SI": "🇸🇮",
-  "SE": "🇸🇪",
-  "SZ": "🇸🇿",
-  "SC": "🇸🇨",
-  "SY": "🇸🇾",
-  "TD": "🇹🇩",
-  "TG": "🇹🇬",
-  "TH": "🇹🇭",
-  "TJ": "🇹🇯",
-  "TM": "🇹🇲",
-  "TL": "🇹🇱",
-  "TO": "🇹🇴",
-  "TT": "🇹🇹",
-  "TN": "🇹🇳",
-  "TR": "🇹🇷",
-  "TV": "🇹🇻",
-  "TZ": "🇹🇿",
-  "UG": "🇺🇬",
-  "UA": "🇺🇦",
-  "UY": "🇺🇾",
-  "US": "🇺🇸",
-  "UZ": "🇺🇿",
-  "VA": "🇻🇦",
-  "VC": "🇻🇨",
-  "VE": "🇻🇪",
-  "VN": "🇻🇳",
-  "VU": "🇻🇺",
-  "WS": "🇼🇸",
-  "YE": "🇾🇪",
-  "ZA": "🇿🇦",
-  "ZM": "🇿🇲",
-  "ZW": "🇿🇼"
-}
+  AF: "🇦🇫",
+  AO: "🇦🇴",
+  AL: "🇦🇱",
+  AD: "🇦🇩",
+  AE: "🇦🇪",
+  AR: "🇦🇷",
+  AM: "🇦🇲",
+  AG: "🇦🇬",
+  AU: "🇦🇺",
+  AT: "🇦🇹",
+  AZ: "🇦🇿",
+  BI: "🇧🇮",
+  BE: "🇧🇪",
+  BJ: "🇧🇯",
+  BF: "🇧🇫",
+  BD: "🇧🇩",
+  BG: "🇧🇬",
+  BH: "🇧🇭",
+  BS: "🇧🇸",
+  BA: "🇧🇦",
+  BY: "🇧🇾",
+  BZ: "🇧🇿",
+  BO: "🇧🇴",
+  BR: "🇧🇷",
+  BB: "🇧🇧",
+  BN: "🇧🇳",
+  BT: "🇧🇹",
+  BW: "🇧🇼",
+  CF: "🇨🇫",
+  CA: "🇨🇦",
+  CH: "🇨🇭",
+  CL: "🇨🇱",
+  CN: "🇨🇳",
+  CI: "🇨🇮",
+  CM: "🇨🇲",
+  CD: "🇨🇩",
+  CG: "🇨🇬",
+  CO: "🇨🇴",
+  KM: "🇰🇲",
+  CV: "🇨🇻",
+  CR: "🇨🇷",
+  CU: "🇨🇺",
+  CY: "🇨🇾",
+  CZ: "🇨🇿",
+  DE: "🇩🇪",
+  DJ: "🇩🇯",
+  DM: "🇩🇲",
+  DK: "🇩🇰",
+  DO: "🇩🇴",
+  DZ: "🇩🇿",
+  EC: "🇪🇨",
+  EG: "🇪🇬",
+  ER: "🇪🇷",
+  ES: "🇪🇸",
+  EE: "🇪🇪",
+  ET: "🇪🇹",
+  FI: "🇫🇮",
+  FJ: "🇫🇯",
+  FR: "🇫🇷",
+  FM: "🇫🇲",
+  GA: "🇬🇦",
+  GB: "🇬🇧",
+  GE: "🇬🇪",
+  GH: "🇬🇭",
+  GN: "🇬🇳",
+  GM: "🇬🇲",
+  GW: "🇬🇼",
+  GQ: "🇬🇶",
+  GR: "🇬🇷",
+  GD: "🇬🇩",
+  GT: "🇬🇹",
+  GY: "🇬🇾",
+  HN: "🇭🇳",
+  HR: "🇭🇷",
+  HT: "🇭🇹",
+  HU: "🇭🇺",
+  ID: "🇮🇩",
+  IN: "🇮🇳",
+  IE: "🇮🇪",
+  IR: "🇮🇷",
+  IQ: "🇮🇶",
+  IS: "🇮🇸",
+  IL: "🇮🇱",
+  IT: "🇮🇹",
+  JM: "🇯🇲",
+  JO: "🇯🇴",
+  JP: "🇯🇵",
+  KZ: "🇰🇿",
+  KE: "🇰🇪",
+  KG: "🇰🇬",
+  KH: "🇰🇭",
+  KI: "🇰🇮",
+  KN: "🇰🇳",
+  KR: "🇰🇷",
+  KW: "🇰🇼",
+  LA: "🇱🇦",
+  LB: "🇱🇧",
+  LR: "🇱🇷",
+  LY: "🇱🇾",
+  LC: "🇱🇨",
+  LI: "🇱🇮",
+  LK: "🇱🇰",
+  LS: "🇱🇸",
+  LT: "🇱🇹",
+  LU: "🇱🇺",
+  LV: "🇱🇻",
+  MA: "🇲🇦",
+  MC: "🇲🇨",
+  MD: "🇲🇩",
+  MG: "🇲🇬",
+  MV: "🇲🇻",
+  MX: "🇲🇽",
+  MH: "🇲🇭",
+  MK: "🇲🇰",
+  ML: "🇲🇱",
+  MT: "🇲🇹",
+  MM: "🇲🇲",
+  ME: "🇲🇪",
+  MN: "🇲🇳",
+  MZ: "🇲🇿",
+  MR: "🇲🇷",
+  MU: "🇲🇺",
+  MW: "🇲🇼",
+  MY: "🇲🇾",
+  NA: "🇳🇦",
+  NE: "🇳🇪",
+  NG: "🇳🇬",
+  NI: "🇳🇮",
+  NL: "🇳🇱",
+  NO: "🇳🇴",
+  NP: "🇳🇵",
+  NR: "🇳🇷",
+  NZ: "🇳🇿",
+  OM: "🇴🇲",
+  PK: "🇵🇰",
+  PA: "🇵🇦",
+  PE: "🇵🇪",
+  PH: "🇵🇭",
+  PW: "🇵🇼",
+  PG: "🇵🇬",
+  PL: "🇵🇱",
+  KP: "🇰🇵",
+  PT: "🇵🇹",
+  PY: "🇵🇾",
+  QA: "🇶🇦",
+  RO: "🇷🇴",
+  RU: "🇷🇺",
+  RW: "🇷🇼",
+  SA: "🇸🇦",
+  SD: "🇸🇩",
+  SN: "🇸🇳",
+  SG: "🇸🇬",
+  SB: "🇸🇧",
+  SL: "🇸🇱",
+  SV: "🇸🇻",
+  SM: "🇸🇲",
+  SO: "🇸🇴",
+  RS: "🇷🇸",
+  SS: "🇸🇸",
+  ST: "🇸🇹",
+  SR: "🇸🇷",
+  SK: "🇸🇰",
+  SI: "🇸🇮",
+  SE: "🇸🇪",
+  SZ: "🇸🇿",
+  SC: "🇸🇨",
+  SY: "🇸🇾",
+  TD: "🇹🇩",
+  TG: "🇹🇬",
+  TH: "🇹🇭",
+  TJ: "🇹🇯",
+  TM: "🇹🇲",
+  TL: "🇹🇱",
+  TO: "🇹🇴",
+  TT: "🇹🇹",
+  TN: "🇹🇳",
+  TR: "🇹🇷",
+  TV: "🇹🇻",
+  TZ: "🇹🇿",
+  UG: "🇺🇬",
+  UA: "🇺🇦",
+  UY: "🇺🇾",
+  US: "🇺🇸",
+  UZ: "🇺🇿",
+  VA: "🇻🇦",
+  VC: "🇻🇨",
+  VE: "🇻🇪",
+  VN: "🇻🇳",
+  VU: "🇻🇺",
+  WS: "🇼🇸",
+  YE: "🇾🇪",
+  ZA: "🇿🇦",
+  ZM: "🇿🇲",
+  ZW: "🇿🇼",
+};
 
 const countries = {
-  "AF": { "name": "Afghanistan", "cca2": "AF", "flag": "🇦🇫", "code": "93" },
-  "AO": { "name": "Angola", "cca2": "AO", "flag": "🇦🇴", "code": "244" },
-  "AL": { "name": "Albania", "cca2": "AL", "flag": "🇦🇱", "code": "355" },
-  "AD": { "name": "Andorra", "cca2": "AD", "flag": "🇦🇩", "code": "376" },
-  "AE": { "name": "United Arab Emirates", "cca2": "AE", "flag": "🇦🇪", "code": "971" },
-  "AR": { "name": "Argentina", "cca2": "AR", "flag": "🇦🇷", "code": "54" },
-  "AM": { "name": "Armenia", "cca2": "AM", "flag": "🇦🇲", "code": "374" },
-  "AG": { "name": "Antigua and Barbuda", "cca2": "AG", "flag": "🇦🇬", "code": "1268" },
-  "AU": { "name": "Australia", "cca2": "AU", "flag": "🇦🇺", "code": "61" },
-  "AT": { "name": "Austria", "cca2": "AT", "flag": "🇦🇹", "code": "43" },
-  "AZ": { "name": "Azerbaijan", "cca2": "AZ", "flag": "🇦🇿", "code": "994" },
-  "BI": { "name": "Burundi", "cca2": "BI", "flag": "🇧🇮", "code": "257" },
-  "BE": { "name": "Belgium", "cca2": "BE", "flag": "🇧🇪", "code": "32" },
-  "BJ": { "name": "Benin", "cca2": "BJ", "flag": "🇧🇯", "code": "229" },
-  "BF": { "name": "Burkina Faso", "cca2": "BF", "flag": "🇧🇫", "code": "226" },
-  "BD": { "name": "Bangladesh", "cca2": "BD", "flag": "🇧🇩", "code": "880" },
-  "BG": { "name": "Bulgaria", "cca2": "BG", "flag": "🇧🇬", "code": "359" },
-  "BH": { "name": "Bahrain", "cca2": "BH", "flag": "🇧🇭", "code": "973" },
-  "BS": { "name": "Bahamas", "cca2": "BS", "flag": "🇧🇸", "code": "1242" },
-  "BA": { "name": "Bosnia and Herzegovina", "cca2": "BA", "flag": "🇧🇦", "code": "387" },
-  "BY": { "name": "Belarus", "cca2": "BY", "flag": "🇧🇾", "code": "375" },
-  "BZ": { "name": "Belize", "cca2": "BZ", "flag": "🇧🇿", "code": "501" },
-  "BO": { "name": "Bolivia", "cca2": "BO", "flag": "🇧🇴", "code": "591" },
-  "BR": { "name": "Brazil", "cca2": "BR", "flag": "🇧🇷", "code": "55" },
-  "BB": { "name": "Barbados", "cca2": "BB", "flag": "🇧🇧", "code": "1246" },
-  "BN": { "name": "Brunei", "cca2": "BN", "flag": "🇧🇳", "code": "673" },
-  "BT": { "name": "Bhutan", "cca2": "BT", "flag": "🇧🇹", "code": "975" },
-  "BW": { "name": "Botswana", "cca2": "BW", "flag": "🇧🇼", "code": "267" },
-  "CF": { "name": "Central African Republic", "cca2": "CF", "flag": "🇨🇫", "code": "236" },
-  "CA": { "name": "Canada", "cca2": "CA", "flag": "🇨🇦", "code": "1" },
-  "CH": { "name": "Switzerland", "cca2": "CH", "flag": "🇨🇭", "code": "41" },
-  "CL": { "name": "Chile", "cca2": "CL", "flag": "🇨🇱", "code": "56" },
-  "CN": { "name": "China", "cca2": "CN", "flag": "🇨🇳", "code": "86" },
-  "CI": { "name": "Ivory Coast", "cca2": "CI", "flag": "🇨🇮", "code": "225" },
-  "CM": { "name": "Cameroon", "cca2": "CM", "flag": "🇨🇲", "code": "237" },
-  "CD": { "name": "DR Congo", "cca2": "CD", "flag": "🇨🇩", "code": "243" },
-  "CG": { "name": "Republic of the Congo", "cca2": "CG", "flag": "🇨🇬", "code": "242" },
-  "CO": { "name": "Colombia", "cca2": "CO", "flag": "🇨🇴", "code": "57" },
-  "KM": { "name": "Comoros", "cca2": "KM", "flag": "🇰🇲", "code": "269" },
-  "CV": { "name": "Cape Verde", "cca2": "CV", "flag": "🇨🇻", "code": "238" },
-  "CR": { "name": "Costa Rica", "cca2": "CR", "flag": "🇨🇷", "code": "506" },
-  "CU": { "name": "Cuba", "cca2": "CU", "flag": "🇨🇺", "code": "53" },
-  "CY": { "name": "Cyprus", "cca2": "CY", "flag": "🇨🇾", "code": "357" },
-  "CZ": { "name": "Czechia", "cca2": "CZ", "flag": "🇨🇿", "code": "420" },
-  "DE": { "name": "Germany", "cca2": "DE", "flag": "🇩🇪", "code": "49" },
-  "DJ": { "name": "Djibouti", "cca2": "DJ", "flag": "🇩🇯", "code": "253" },
-  "DM": { "name": "Dominica", "cca2": "DM", "flag": "🇩🇲", "code": "1767" },
-  "DK": { "name": "Denmark", "cca2": "DK", "flag": "🇩🇰", "code": "45" },
-  "DO": { "name": "Dominican Republic", "cca2": "DO", "flag": "🇩🇴", "code": "1809" },
-  "DZ": { "name": "Algeria", "cca2": "DZ", "flag": "🇩🇿", "code": "213" },
-  "EC": { "name": "Ecuador", "cca2": "EC", "flag": "🇪🇨", "code": "593" },
-  "EG": { "name": "Egypt", "cca2": "EG", "flag": "🇪🇬", "code": "20" },
-  "ER": { "name": "Eritrea", "cca2": "ER", "flag": "🇪🇷", "code": "291" },
-  "ES": { "name": "Spain", "cca2": "ES", "flag": "🇪🇸", "code": "34" },
-  "EE": { "name": "Estonia", "cca2": "EE", "flag": "🇪🇪", "code": "372" },
-  "ET": { "name": "Ethiopia", "cca2": "ET", "flag": "🇪🇹", "code": "251" },
-  "FI": { "name": "Finland", "cca2": "FI", "flag": "🇫🇮", "code": "358" },
-  "FJ": { "name": "Fiji", "cca2": "FJ", "flag": "🇫🇯", "code": "679" },
-  "FR": { "name": "France", "cca2": "FR", "flag": "🇫🇷", "code": "33" },
-  "FM": { "name": "Micronesia", "cca2": "FM", "flag": "🇫🇲", "code": "691" },
-  "GA": { "name": "Gabon", "cca2": "GA", "flag": "🇬🇦", "code": "241" },
-  "GB": { "name": "United Kingdom", "cca2": "GB", "flag": "🇬🇧", "code": "44" },
-  "GE": { "name": "Georgia", "cca2": "GE", "flag": "🇬🇪", "code": "995" },
-  "GH": { "name": "Ghana", "cca2": "GH", "flag": "🇬🇭", "code": "233" },
-  "GN": { "name": "Guinea", "cca2": "GN", "flag": "🇬🇳", "code": "224" },
-  "GM": { "name": "Gambia", "cca2": "GM", "flag": "🇬🇲", "code": "220" },
-  "GW": { "name": "Guinea-Bissau", "cca2": "GW", "flag": "🇬🇼", "code": "245" },
-  "GQ": { "name": "Equatorial Guinea", "cca2": "GQ", "flag": "🇬🇶", "code": "240" },
-  "GR": { "name": "Greece", "cca2": "GR", "flag": "🇬🇷", "code": "30" },
-  "GD": { "name": "Grenada", "cca2": "GD", "flag": "🇬🇩", "code": "1473" },
-  "GT": { "name": "Guatemala", "cca2": "GT", "flag": "🇬🇹", "code": "502" },
-  "GY": { "name": "Guyana", "cca2": "GY", "flag": "🇬🇾", "code": "592" },
-  "HN": { "name": "Honduras", "cca2": "HN", "flag": "🇭🇳", "code": "504" },
-  "HR": { "name": "Croatia", "cca2": "HR", "flag": "🇭🇷", "code": "385" },
-  "HT": { "name": "Haiti", "cca2": "HT", "flag": "🇭🇹", "code": "509" },
-  "HU": { "name": "Hungary", "cca2": "HU", "flag": "🇭🇺", "code": "36" },
-  "ID": { "name": "Indonesia", "cca2": "ID", "flag": "🇮🇩", "code": "62" },
-  "IN": { "name": "India", "cca2": "IN", "flag": "🇮🇳", "code": "91" },
-  "IE": { "name": "Ireland", "cca2": "IE", "flag": "🇮🇪", "code": "353" },
-  "IR": { "name": "Iran", "cca2": "IR", "flag": "🇮🇷", "code": "98" },
-  "IQ": { "name": "Iraq", "cca2": "IQ", "flag": "🇮🇶", "code": "964" },
-  "IS": { "name": "Iceland", "cca2": "IS", "flag": "🇮🇸", "code": "354" },
-  "IL": { "name": "Israel", "cca2": "IL", "flag": "🇮🇱", "code": "972" },
-  "IT": { "name": "Italy", "cca2": "IT", "flag": "🇮🇹", "code": "39" },
-  "JM": { "name": "Jamaica", "cca2": "JM", "flag": "🇯🇲", "code": "1876" },
-  "JO": { "name": "Jordan", "cca2": "JO", "flag": "🇯🇴", "code": "962" },
-  "JP": { "name": "Japan", "cca2": "JP", "flag": "🇯🇵", "code": "81" },
-  "KZ": { "name": "Kazakhstan", "cca2": "KZ", "flag": "🇰🇿", "code": "76" },
-  "KE": { "name": "Kenya", "cca2": "KE", "flag": "🇰🇪", "code": "254" },
-  "KG": { "name": "Kyrgyzstan", "cca2": "KG", "flag": "🇰🇬", "code": "996" },
-  "KH": { "name": "Cambodia", "cca2": "KH", "flag": "🇰🇭", "code": "855" },
-  "KI": { "name": "Kiribati", "cca2": "KI", "flag": "🇰🇮", "code": "686" },
-  "KN": { "name": "Saint Kitts and Nevis", "cca2": "KN", "flag": "🇰🇳", "code": "1869" },
-  "KR": { "name": "South Korea", "cca2": "KR", "flag": "🇰🇷", "code": "82" },
-  "KW": { "name": "Kuwait", "cca2": "KW", "flag": "🇰🇼", "code": "965" },
-  "LA": { "name": "Laos", "cca2": "LA", "flag": "🇱🇦", "code": "856" },
-  "LB": { "name": "Lebanon", "cca2": "LB", "flag": "🇱🇧", "code": "961" },
-  "LR": { "name": "Liberia", "cca2": "LR", "flag": "🇱🇷", "code": "231" },
-  "LY": { "name": "Libya", "cca2": "LY", "flag": "🇱🇾", "code": "218" },
-  "LC": { "name": "Saint Lucia", "cca2": "LC", "flag": "🇱🇨", "code": "1758" },
-  "LI": { "name": "Liechtenstein", "cca2": "LI", "flag": "🇱🇮", "code": "423" },
-  "LK": { "name": "Sri Lanka", "cca2": "LK", "flag": "🇱🇰", "code": "94" },
-  "LS": { "name": "Lesotho", "cca2": "LS", "flag": "🇱🇸", "code": "266" },
-  "LT": { "name": "Lithuania", "cca2": "LT", "flag": "🇱🇹", "code": "370" },
-  "LU": { "name": "Luxembourg", "cca2": "LU", "flag": "🇱🇺", "code": "352" },
-  "LV": { "name": "Latvia", "cca2": "LV", "flag": "🇱🇻", "code": "371" },
-  "MA": { "name": "Morocco", "cca2": "MA", "flag": "🇲🇦", "code": "212" },
-  "MC": { "name": "Monaco", "cca2": "MC", "flag": "🇲🇨", "code": "377" },
-  "MD": { "name": "Moldova", "cca2": "MD", "flag": "🇲🇩", "code": "373" },
-  "MG": { "name": "Madagascar", "cca2": "MG", "flag": "🇲🇬", "code": "261" },
-  "MV": { "name": "Maldives", "cca2": "MV", "flag": "🇲🇻", "code": "960" },
-  "MX": { "name": "Mexico", "cca2": "MX", "flag": "🇲🇽", "code": "52" },
-  "MH": { "name": "Marshall Islands", "cca2": "MH", "flag": "🇲🇭", "code": "692" },
-  "MK": { "name": "Macedonia", "cca2": "MK", "flag": "🇲🇰", "code": "389" },
-  "ML": { "name": "Mali", "cca2": "ML", "flag": "🇲🇱", "code": "223" },
-  "MT": { "name": "Malta", "cca2": "MT", "flag": "🇲🇹", "code": "356" },
-  "MM": { "name": "Myanmar", "cca2": "MM", "flag": "🇲🇲", "code": "95" },
-  "ME": { "name": "Montenegro", "cca2": "ME", "flag": "🇲🇪", "code": "382" },
-  "MN": { "name": "Mongolia", "cca2": "MN", "flag": "🇲🇳", "code": "976" },
-  "MZ": { "name": "Mozambique", "cca2": "MZ", "flag": "🇲🇿", "code": "258" },
-  "MR": { "name": "Mauritania", "cca2": "MR", "flag": "🇲🇷", "code": "222" },
-  "MU": { "name": "Mauritius", "cca2": "MU", "flag": "🇲🇺", "code": "230" },
-  "MW": { "name": "Malawi", "cca2": "MW", "flag": "🇲🇼", "code": "265" },
-  "MY": { "name": "Malaysia", "cca2": "MY", "flag": "🇲🇾", "code": "60" },
-  "NA": { "name": "Namibia", "cca2": "NA", "flag": "🇳🇦", "code": "264" },
-  "NE": { "name": "Niger", "cca2": "NE", "flag": "🇳🇪", "code": "227" },
-  "NG": { "name": "Nigeria", "cca2": "NG", "flag": "🇳🇬", "code": "234" },
-  "NI": { "name": "Nicaragua", "cca2": "NI", "flag": "🇳🇮", "code": "505" },
-  "NL": { "name": "Netherlands", "cca2": "NL", "flag": "🇳🇱", "code": "31" },
-  "NO": { "name": "Norway", "cca2": "NO", "flag": "🇳🇴", "code": "47" },
-  "NP": { "name": "Nepal", "cca2": "NP", "flag": "🇳🇵", "code": "977" },
-  "NR": { "name": "Nauru", "cca2": "NR", "flag": "🇳🇷", "code": "674" },
-  "NZ": { "name": "New Zealand", "cca2": "NZ", "flag": "🇳🇿", "code": "64" },
-  "OM": { "name": "Oman", "cca2": "OM", "flag": "🇴🇲", "code": "968" },
-  "PK": { "name": "Pakistan", "cca2": "PK", "flag": "🇵🇰", "code": "92" },
-  "PA": { "name": "Panama", "cca2": "PA", "flag": "🇵🇦", "code": "507" },
-  "PE": { "name": "Peru", "cca2": "PE", "flag": "🇵🇪", "code": "51" },
-  "PH": { "name": "Philippines", "cca2": "PH", "flag": "🇵🇭", "code": "63" },
-  "PW": { "name": "Palau", "cca2": "PW", "flag": "🇵🇼", "code": "680" },
-  "PG": { "name": "Papua New Guinea", "cca2": "PG", "flag": "🇵🇬", "code": "675" },
-  "PL": { "name": "Poland", "cca2": "PL", "flag": "🇵🇱", "code": "48" },
-  "KP": { "name": "North Korea", "cca2": "KP", "flag": "🇰🇵", "code": "850" },
-  "PT": { "name": "Portugal", "cca2": "PT", "flag": "🇵🇹", "code": "351" },
-  "PY": { "name": "Paraguay", "cca2": "PY", "flag": "🇵🇾", "code": "595" },
-  "QA": { "name": "Qatar", "cca2": "QA", "flag": "🇶🇦", "code": "974" },
-  "RO": { "name": "Romania", "cca2": "RO", "flag": "🇷🇴", "code": "40" },
-  "RU": { "name": "Russia", "cca2": "RU", "flag": "🇷🇺", "code": "7" },
-  "RW": { "name": "Rwanda", "cca2": "RW", "flag": "🇷🇼", "code": "250" },
-  "SA": { "name": "Saudi Arabia", "cca2": "SA", "flag": "🇸🇦", "code": "966" },
-  "SD": { "name": "Sudan", "cca2": "SD", "flag": "🇸🇩", "code": "249" },
-  "SN": { "name": "Senegal", "cca2": "SN", "flag": "🇸🇳", "code": "221" },
-  "SG": { "name": "Singapore", "cca2": "SG", "flag": "🇸🇬", "code": "65" },
-  "SB": { "name": "Solomon Islands", "cca2": "SB", "flag": "🇸🇧", "code": "677" },
-  "SL": { "name": "Sierra Leone", "cca2": "SL", "flag": "🇸🇱", "code": "232" },
-  "SV": { "name": "El Salvador", "cca2": "SV", "flag": "🇸🇻", "code": "503" },
-  "SM": { "name": "San Marino", "cca2": "SM", "flag": "🇸🇲", "code": "378" },
-  "SO": { "name": "Somalia", "cca2": "SO", "flag": "🇸🇴", "code": "252" },
-  "RS": { "name": "Serbia", "cca2": "RS", "flag": "🇷🇸", "code": "381" },
-  "SS": { "name": "South Sudan", "cca2": "SS", "flag": "🇸🇸", "code": "211" },
-  "ST": { "name": "São Tomé and Príncipe", "cca2": "ST", "flag": "🇸🇹", "code": "239" },
-  "SR": { "name": "Suriname", "cca2": "SR", "flag": "🇸🇷", "code": "597" },
-  "SK": { "name": "Slovakia", "cca2": "SK", "flag": "🇸🇰", "code": "421" },
-  "SI": { "name": "Slovenia", "cca2": "SI", "flag": "🇸🇮", "code": "386" },
-  "SE": { "name": "Sweden", "cca2": "SE", "flag": "🇸🇪", "code": "46" },
-  "SZ": { "name": "Swaziland", "cca2": "SZ", "flag": "🇸🇿", "code": "268" },
-  "SC": { "name": "Seychelles", "cca2": "SC", "flag": "🇸🇨", "code": "248" },
-  "SY": { "name": "Syria", "cca2": "SY", "flag": "🇸🇾", "code": "963" },
-  "TD": { "name": "Chad", "cca2": "TD", "flag": "🇹🇩", "code": "235" },
-  "TG": { "name": "Togo", "cca2": "TG", "flag": "🇹🇬", "code": "228" },
-  "TH": { "name": "Thailand", "cca2": "TH", "flag": "🇹🇭", "code": "66" },
-  "TJ": { "name": "Tajikistan", "cca2": "TJ", "flag": "🇹🇯", "code": "992" },
-  "TM": { "name": "Turkmenistan", "cca2": "TM", "flag": "🇹🇲", "code": "993" },
-  "TL": { "name": "Timor-Leste", "cca2": "TL", "flag": "🇹🇱", "code": "670" },
-  "TO": { "name": "Tonga", "cca2": "TO", "flag": "🇹🇴", "code": "676" },
-  "TT": { "name": "Trinidad and Tobago", "cca2": "TT", "flag": "🇹🇹", "code": "1868" },
-  "TN": { "name": "Tunisia", "cca2": "TN", "flag": "🇹🇳", "code": "216" },
-  "TR": { "name": "Turkey", "cca2": "TR", "flag": "🇹🇷", "code": "90" },
-  "TV": { "name": "Tuvalu", "cca2": "TV", "flag": "🇹🇻", "code": "688" },
-  "TZ": { "name": "Tanzania", "cca2": "TZ", "flag": "🇹🇿", "code": "255" },
-  "UG": { "name": "Uganda", "cca2": "UG", "flag": "🇺🇬", "code": "256" },
-  "UA": { "name": "Ukraine", "cca2": "UA", "flag": "🇺🇦", "code": "380" },
-  "UY": { "name": "Uruguay", "cca2": "UY", "flag": "🇺🇾", "code": "598" },
-  "US": { "name": "United States", "cca2": "US", "flag": "🇺🇸", "code": "1" },
-  "UZ": { "name": "Uzbekistan", "cca2": "UZ", "flag": "🇺🇿", "code": "998" },
-  "VA": { "name": "Vatican City", "cca2": "VA", "flag": "🇻🇦", "code": "3906698" },
-  "VC": { "name": "Saint Vincent and the Grenadines", "cca2": "VC", "flag": "🇻🇨", "code": "1784" },
-  "VE": { "name": "Venezuela", "cca2": "VE", "flag": "🇻🇪", "code": "58" },
-  "VN": { "name": "Vietnam", "cca2": "VN", "flag": "🇻🇳", "code": "84" },
-  "VU": { "name": "Vanuatu", "cca2": "VU", "flag": "🇻🇺", "code": "678" },
-  "WS": { "name": "Samoa", "cca2": "WS", "flag": "🇼🇸", "code": "685" },
-  "YE": { "name": "Yemen", "cca2": "YE", "flag": "🇾🇪", "code": "967" },
-  "ZA": { "name": "South Africa", "cca2": "ZA", "flag": "🇿🇦", "code": "27" },
-  "ZM": { "name": "Zambia", "cca2": "ZM", "flag": "🇿🇲", "code": "260" },
-  "ZW": { "name": "Zimbabwe", "cca2": "ZW", "flag": "🇿🇼", "code": "263" }
-}
+  AF: { name: "Afghanistan", cca2: "AF", flag: "🇦🇫", code: "93" },
+  AO: { name: "Angola", cca2: "AO", flag: "🇦🇴", code: "244" },
+  AL: { name: "Albania", cca2: "AL", flag: "🇦🇱", code: "355" },
+  AD: { name: "Andorra", cca2: "AD", flag: "🇦🇩", code: "376" },
+  AE: { name: "United Arab Emirates", cca2: "AE", flag: "🇦🇪", code: "971" },
+  AR: { name: "Argentina", cca2: "AR", flag: "🇦🇷", code: "54" },
+  AM: { name: "Armenia", cca2: "AM", flag: "🇦🇲", code: "374" },
+  AG: { name: "Antigua and Barbuda", cca2: "AG", flag: "🇦🇬", code: "1268" },
+  AU: { name: "Australia", cca2: "AU", flag: "🇦🇺", code: "61" },
+  AT: { name: "Austria", cca2: "AT", flag: "🇦🇹", code: "43" },
+  AZ: { name: "Azerbaijan", cca2: "AZ", flag: "🇦🇿", code: "994" },
+  BI: { name: "Burundi", cca2: "BI", flag: "🇧🇮", code: "257" },
+  BE: { name: "Belgium", cca2: "BE", flag: "🇧🇪", code: "32" },
+  BJ: { name: "Benin", cca2: "BJ", flag: "🇧🇯", code: "229" },
+  BF: { name: "Burkina Faso", cca2: "BF", flag: "🇧🇫", code: "226" },
+  BD: { name: "Bangladesh", cca2: "BD", flag: "🇧🇩", code: "880" },
+  BG: { name: "Bulgaria", cca2: "BG", flag: "🇧🇬", code: "359" },
+  BH: { name: "Bahrain", cca2: "BH", flag: "🇧🇭", code: "973" },
+  BS: { name: "Bahamas", cca2: "BS", flag: "🇧🇸", code: "1242" },
+  BA: { name: "Bosnia and Herzegovina", cca2: "BA", flag: "🇧🇦", code: "387" },
+  BY: { name: "Belarus", cca2: "BY", flag: "🇧🇾", code: "375" },
+  BZ: { name: "Belize", cca2: "BZ", flag: "🇧🇿", code: "501" },
+  BO: { name: "Bolivia", cca2: "BO", flag: "🇧🇴", code: "591" },
+  BR: { name: "Brazil", cca2: "BR", flag: "🇧🇷", code: "55" },
+  BB: { name: "Barbados", cca2: "BB", flag: "🇧🇧", code: "1246" },
+  BN: { name: "Brunei", cca2: "BN", flag: "🇧🇳", code: "673" },
+  BT: { name: "Bhutan", cca2: "BT", flag: "🇧🇹", code: "975" },
+  BW: { name: "Botswana", cca2: "BW", flag: "🇧🇼", code: "267" },
+  CF: { name: "Central African Republic", cca2: "CF", flag: "🇨🇫", code: "236" },
+  CA: { name: "Canada", cca2: "CA", flag: "🇨🇦", code: "1" },
+  CH: { name: "Switzerland", cca2: "CH", flag: "🇨🇭", code: "41" },
+  CL: { name: "Chile", cca2: "CL", flag: "🇨🇱", code: "56" },
+  CN: { name: "China", cca2: "CN", flag: "🇨🇳", code: "86" },
+  CI: { name: "Ivory Coast", cca2: "CI", flag: "🇨🇮", code: "225" },
+  CM: { name: "Cameroon", cca2: "CM", flag: "🇨🇲", code: "237" },
+  CD: { name: "DR Congo", cca2: "CD", flag: "🇨🇩", code: "243" },
+  CG: { name: "Republic of the Congo", cca2: "CG", flag: "🇨🇬", code: "242" },
+  CO: { name: "Colombia", cca2: "CO", flag: "🇨🇴", code: "57" },
+  KM: { name: "Comoros", cca2: "KM", flag: "🇰🇲", code: "269" },
+  CV: { name: "Cape Verde", cca2: "CV", flag: "🇨🇻", code: "238" },
+  CR: { name: "Costa Rica", cca2: "CR", flag: "🇨🇷", code: "506" },
+  CU: { name: "Cuba", cca2: "CU", flag: "🇨🇺", code: "53" },
+  CY: { name: "Cyprus", cca2: "CY", flag: "🇨🇾", code: "357" },
+  CZ: { name: "Czechia", cca2: "CZ", flag: "🇨🇿", code: "420" },
+  DE: { name: "Germany", cca2: "DE", flag: "🇩🇪", code: "49" },
+  DJ: { name: "Djibouti", cca2: "DJ", flag: "🇩🇯", code: "253" },
+  DM: { name: "Dominica", cca2: "DM", flag: "🇩🇲", code: "1767" },
+  DK: { name: "Denmark", cca2: "DK", flag: "🇩🇰", code: "45" },
+  DO: { name: "Dominican Republic", cca2: "DO", flag: "🇩🇴", code: "1809" },
+  DZ: { name: "Algeria", cca2: "DZ", flag: "🇩🇿", code: "213" },
+  EC: { name: "Ecuador", cca2: "EC", flag: "🇪🇨", code: "593" },
+  EG: { name: "Egypt", cca2: "EG", flag: "🇪🇬", code: "20" },
+  ER: { name: "Eritrea", cca2: "ER", flag: "🇪🇷", code: "291" },
+  ES: { name: "Spain", cca2: "ES", flag: "🇪🇸", code: "34" },
+  EE: { name: "Estonia", cca2: "EE", flag: "🇪🇪", code: "372" },
+  ET: { name: "Ethiopia", cca2: "ET", flag: "🇪🇹", code: "251" },
+  FI: { name: "Finland", cca2: "FI", flag: "🇫🇮", code: "358" },
+  FJ: { name: "Fiji", cca2: "FJ", flag: "🇫🇯", code: "679" },
+  FR: { name: "France", cca2: "FR", flag: "🇫🇷", code: "33" },
+  FM: { name: "Micronesia", cca2: "FM", flag: "🇫🇲", code: "691" },
+  GA: { name: "Gabon", cca2: "GA", flag: "🇬🇦", code: "241" },
+  GB: { name: "United Kingdom", cca2: "GB", flag: "🇬🇧", code: "44" },
+  GE: { name: "Georgia", cca2: "GE", flag: "🇬🇪", code: "995" },
+  GH: { name: "Ghana", cca2: "GH", flag: "🇬🇭", code: "233" },
+  GN: { name: "Guinea", cca2: "GN", flag: "🇬🇳", code: "224" },
+  GM: { name: "Gambia", cca2: "GM", flag: "🇬🇲", code: "220" },
+  GW: { name: "Guinea-Bissau", cca2: "GW", flag: "🇬🇼", code: "245" },
+  GQ: { name: "Equatorial Guinea", cca2: "GQ", flag: "🇬🇶", code: "240" },
+  GR: { name: "Greece", cca2: "GR", flag: "🇬🇷", code: "30" },
+  GD: { name: "Grenada", cca2: "GD", flag: "🇬🇩", code: "1473" },
+  GT: { name: "Guatemala", cca2: "GT", flag: "🇬🇹", code: "502" },
+  GY: { name: "Guyana", cca2: "GY", flag: "🇬🇾", code: "592" },
+  HN: { name: "Honduras", cca2: "HN", flag: "🇭🇳", code: "504" },
+  HR: { name: "Croatia", cca2: "HR", flag: "🇭🇷", code: "385" },
+  HT: { name: "Haiti", cca2: "HT", flag: "🇭🇹", code: "509" },
+  HU: { name: "Hungary", cca2: "HU", flag: "🇭🇺", code: "36" },
+  ID: { name: "Indonesia", cca2: "ID", flag: "🇮🇩", code: "62" },
+  IN: { name: "India", cca2: "IN", flag: "🇮🇳", code: "91" },
+  IE: { name: "Ireland", cca2: "IE", flag: "🇮🇪", code: "353" },
+  IR: { name: "Iran", cca2: "IR", flag: "🇮🇷", code: "98" },
+  IQ: { name: "Iraq", cca2: "IQ", flag: "🇮🇶", code: "964" },
+  IS: { name: "Iceland", cca2: "IS", flag: "🇮🇸", code: "354" },
+  IL: { name: "Israel", cca2: "IL", flag: "🇮🇱", code: "972" },
+  IT: { name: "Italy", cca2: "IT", flag: "🇮🇹", code: "39" },
+  JM: { name: "Jamaica", cca2: "JM", flag: "🇯🇲", code: "1876" },
+  JO: { name: "Jordan", cca2: "JO", flag: "🇯🇴", code: "962" },
+  JP: { name: "Japan", cca2: "JP", flag: "🇯🇵", code: "81" },
+  KZ: { name: "Kazakhstan", cca2: "KZ", flag: "🇰🇿", code: "76" },
+  KE: { name: "Kenya", cca2: "KE", flag: "🇰🇪", code: "254" },
+  KG: { name: "Kyrgyzstan", cca2: "KG", flag: "🇰🇬", code: "996" },
+  KH: { name: "Cambodia", cca2: "KH", flag: "🇰🇭", code: "855" },
+  KI: { name: "Kiribati", cca2: "KI", flag: "🇰🇮", code: "686" },
+  KN: { name: "Saint Kitts and Nevis", cca2: "KN", flag: "🇰🇳", code: "1869" },
+  KR: { name: "South Korea", cca2: "KR", flag: "🇰🇷", code: "82" },
+  KW: { name: "Kuwait", cca2: "KW", flag: "🇰🇼", code: "965" },
+  LA: { name: "Laos", cca2: "LA", flag: "🇱🇦", code: "856" },
+  LB: { name: "Lebanon", cca2: "LB", flag: "🇱🇧", code: "961" },
+  LR: { name: "Liberia", cca2: "LR", flag: "🇱🇷", code: "231" },
+  LY: { name: "Libya", cca2: "LY", flag: "🇱🇾", code: "218" },
+  LC: { name: "Saint Lucia", cca2: "LC", flag: "🇱🇨", code: "1758" },
+  LI: { name: "Liechtenstein", cca2: "LI", flag: "🇱🇮", code: "423" },
+  LK: { name: "Sri Lanka", cca2: "LK", flag: "🇱🇰", code: "94" },
+  LS: { name: "Lesotho", cca2: "LS", flag: "🇱🇸", code: "266" },
+  LT: { name: "Lithuania", cca2: "LT", flag: "🇱🇹", code: "370" },
+  LU: { name: "Luxembourg", cca2: "LU", flag: "🇱🇺", code: "352" },
+  LV: { name: "Latvia", cca2: "LV", flag: "🇱🇻", code: "371" },
+  MA: { name: "Morocco", cca2: "MA", flag: "🇲🇦", code: "212" },
+  MC: { name: "Monaco", cca2: "MC", flag: "🇲🇨", code: "377" },
+  MD: { name: "Moldova", cca2: "MD", flag: "🇲🇩", code: "373" },
+  MG: { name: "Madagascar", cca2: "MG", flag: "🇲🇬", code: "261" },
+  MV: { name: "Maldives", cca2: "MV", flag: "🇲🇻", code: "960" },
+  MX: { name: "Mexico", cca2: "MX", flag: "🇲🇽", code: "52" },
+  MH: { name: "Marshall Islands", cca2: "MH", flag: "🇲🇭", code: "692" },
+  MK: { name: "Macedonia", cca2: "MK", flag: "🇲🇰", code: "389" },
+  ML: { name: "Mali", cca2: "ML", flag: "🇲🇱", code: "223" },
+  MT: { name: "Malta", cca2: "MT", flag: "🇲🇹", code: "356" },
+  MM: { name: "Myanmar", cca2: "MM", flag: "🇲🇲", code: "95" },
+  ME: { name: "Montenegro", cca2: "ME", flag: "🇲🇪", code: "382" },
+  MN: { name: "Mongolia", cca2: "MN", flag: "🇲🇳", code: "976" },
+  MZ: { name: "Mozambique", cca2: "MZ", flag: "🇲🇿", code: "258" },
+  MR: { name: "Mauritania", cca2: "MR", flag: "🇲🇷", code: "222" },
+  MU: { name: "Mauritius", cca2: "MU", flag: "🇲🇺", code: "230" },
+  MW: { name: "Malawi", cca2: "MW", flag: "🇲🇼", code: "265" },
+  MY: { name: "Malaysia", cca2: "MY", flag: "🇲🇾", code: "60" },
+  NA: { name: "Namibia", cca2: "NA", flag: "🇳🇦", code: "264" },
+  NE: { name: "Niger", cca2: "NE", flag: "🇳🇪", code: "227" },
+  NG: { name: "Nigeria", cca2: "NG", flag: "🇳🇬", code: "234" },
+  NI: { name: "Nicaragua", cca2: "NI", flag: "🇳🇮", code: "505" },
+  NL: { name: "Netherlands", cca2: "NL", flag: "🇳🇱", code: "31" },
+  NO: { name: "Norway", cca2: "NO", flag: "🇳🇴", code: "47" },
+  NP: { name: "Nepal", cca2: "NP", flag: "🇳🇵", code: "977" },
+  NR: { name: "Nauru", cca2: "NR", flag: "🇳🇷", code: "674" },
+  NZ: { name: "New Zealand", cca2: "NZ", flag: "🇳🇿", code: "64" },
+  OM: { name: "Oman", cca2: "OM", flag: "🇴🇲", code: "968" },
+  PK: { name: "Pakistan", cca2: "PK", flag: "🇵🇰", code: "92" },
+  PA: { name: "Panama", cca2: "PA", flag: "🇵🇦", code: "507" },
+  PE: { name: "Peru", cca2: "PE", flag: "🇵🇪", code: "51" },
+  PH: { name: "Philippines", cca2: "PH", flag: "🇵🇭", code: "63" },
+  PW: { name: "Palau", cca2: "PW", flag: "🇵🇼", code: "680" },
+  PG: { name: "Papua New Guinea", cca2: "PG", flag: "🇵🇬", code: "675" },
+  PL: { name: "Poland", cca2: "PL", flag: "🇵🇱", code: "48" },
+  KP: { name: "North Korea", cca2: "KP", flag: "🇰🇵", code: "850" },
+  PT: { name: "Portugal", cca2: "PT", flag: "🇵🇹", code: "351" },
+  PY: { name: "Paraguay", cca2: "PY", flag: "🇵🇾", code: "595" },
+  QA: { name: "Qatar", cca2: "QA", flag: "🇶🇦", code: "974" },
+  RO: { name: "Romania", cca2: "RO", flag: "🇷🇴", code: "40" },
+  RU: { name: "Russia", cca2: "RU", flag: "🇷🇺", code: "7" },
+  RW: { name: "Rwanda", cca2: "RW", flag: "🇷🇼", code: "250" },
+  SA: { name: "Saudi Arabia", cca2: "SA", flag: "🇸🇦", code: "966" },
+  SD: { name: "Sudan", cca2: "SD", flag: "🇸🇩", code: "249" },
+  SN: { name: "Senegal", cca2: "SN", flag: "🇸🇳", code: "221" },
+  SG: { name: "Singapore", cca2: "SG", flag: "🇸🇬", code: "65" },
+  SB: { name: "Solomon Islands", cca2: "SB", flag: "🇸🇧", code: "677" },
+  SL: { name: "Sierra Leone", cca2: "SL", flag: "🇸🇱", code: "232" },
+  SV: { name: "El Salvador", cca2: "SV", flag: "🇸🇻", code: "503" },
+  SM: { name: "San Marino", cca2: "SM", flag: "🇸🇲", code: "378" },
+  SO: { name: "Somalia", cca2: "SO", flag: "🇸🇴", code: "252" },
+  RS: { name: "Serbia", cca2: "RS", flag: "🇷🇸", code: "381" },
+  SS: { name: "South Sudan", cca2: "SS", flag: "🇸🇸", code: "211" },
+  ST: { name: "São Tomé and Príncipe", cca2: "ST", flag: "🇸🇹", code: "239" },
+  SR: { name: "Suriname", cca2: "SR", flag: "🇸🇷", code: "597" },
+  SK: { name: "Slovakia", cca2: "SK", flag: "🇸🇰", code: "421" },
+  SI: { name: "Slovenia", cca2: "SI", flag: "🇸🇮", code: "386" },
+  SE: { name: "Sweden", cca2: "SE", flag: "🇸🇪", code: "46" },
+  SZ: { name: "Swaziland", cca2: "SZ", flag: "🇸🇿", code: "268" },
+  SC: { name: "Seychelles", cca2: "SC", flag: "🇸🇨", code: "248" },
+  SY: { name: "Syria", cca2: "SY", flag: "🇸🇾", code: "963" },
+  TD: { name: "Chad", cca2: "TD", flag: "🇹🇩", code: "235" },
+  TG: { name: "Togo", cca2: "TG", flag: "🇹🇬", code: "228" },
+  TH: { name: "Thailand", cca2: "TH", flag: "🇹🇭", code: "66" },
+  TJ: { name: "Tajikistan", cca2: "TJ", flag: "🇹🇯", code: "992" },
+  TM: { name: "Turkmenistan", cca2: "TM", flag: "🇹🇲", code: "993" },
+  TL: { name: "Timor-Leste", cca2: "TL", flag: "🇹🇱", code: "670" },
+  TO: { name: "Tonga", cca2: "TO", flag: "🇹🇴", code: "676" },
+  TT: { name: "Trinidad and Tobago", cca2: "TT", flag: "🇹🇹", code: "1868" },
+  TN: { name: "Tunisia", cca2: "TN", flag: "🇹🇳", code: "216" },
+  TR: { name: "Turkey", cca2: "TR", flag: "🇹🇷", code: "90" },
+  TV: { name: "Tuvalu", cca2: "TV", flag: "🇹🇻", code: "688" },
+  TZ: { name: "Tanzania", cca2: "TZ", flag: "🇹🇿", code: "255" },
+  UG: { name: "Uganda", cca2: "UG", flag: "🇺🇬", code: "256" },
+  UA: { name: "Ukraine", cca2: "UA", flag: "🇺🇦", code: "380" },
+  UY: { name: "Uruguay", cca2: "UY", flag: "🇺🇾", code: "598" },
+  US: { name: "United States", cca2: "US", flag: "🇺🇸", code: "1" },
+  UZ: { name: "Uzbekistan", cca2: "UZ", flag: "🇺🇿", code: "998" },
+  VA: { name: "Vatican City", cca2: "VA", flag: "🇻🇦", code: "3906698" },
+  VC: {
+    name: "Saint Vincent and the Grenadines",
+    cca2: "VC",
+    flag: "🇻🇨",
+    code: "1784",
+  },
+  VE: { name: "Venezuela", cca2: "VE", flag: "🇻🇪", code: "58" },
+  VN: { name: "Vietnam", cca2: "VN", flag: "🇻🇳", code: "84" },
+  VU: { name: "Vanuatu", cca2: "VU", flag: "🇻🇺", code: "678" },
+  WS: { name: "Samoa", cca2: "WS", flag: "🇼🇸", code: "685" },
+  YE: { name: "Yemen", cca2: "YE", flag: "🇾🇪", code: "967" },
+  ZA: { name: "South Africa", cca2: "ZA", flag: "🇿🇦", code: "27" },
+  ZM: { name: "Zambia", cca2: "ZM", flag: "🇿🇲", code: "260" },
+  ZW: { name: "Zimbabwe", cca2: "ZW", flag: "🇿🇼", code: "263" },
+};
 
 const metros = {
-  "500": "Portland-Auburn",
-  "501": "New York",
-  "502": "Binghamton",
-  "503": "Macon",
-  "504": "Philadelphia",
-  "505": "Detroit",
-  "506": "Boston (Manchester)",
-  "507": "Savannah",
-  "508": "Pittsburgh",
-  "509": "Ft. Wayne",
-  "510": "Cleveland-Akron (Canton)",
-  "511": "Washington, DC (Hagrstwn)",
-  "512": "Baltimore",
-  "513": "Flint-Saginaw-Bay City",
-  "514": "Buffalo",
-  "515": "Cincinnati",
-  "516": "Erie",
-  "517": "Charlotte",
-  "518": "Greensboro-H.Point-W.Salem",
-  "519": "Charleston, SC",
-  "520": "Augusta-Aiken",
-  "521": "Providence-New Bedford",
-  "522": "Columbus, GA (Opelika, AL)",
-  "523": "Burlington-Plattsburgh",
-  "524": "Atlanta",
-  "525": "Albany, GA",
-  "526": "Utica",
-  "527": "Indianapolis",
-  "528": "Miami-Ft. Lauderdale",
-  "529": "Louisville",
-  "530": "Tallahassee-Thomasville",
-  "531": "Tri-Cities, TN-VA",
-  "532": "Albany-Schenectady-Troy",
-  "533": "Hartford & New Haven",
-  "534": "Orlando-Daytona Bch-Melbrn",
-  "535": "Columbus, OH",
-  "536": "Youngstown",
-  "537": "Bangor",
-  "538": "Rochester, NY",
-  "539": "Tampa-St. Pete (Sarasota)",
-  "540": "Traverse City-Cadillac",
-  "541": "Lexington",
-  "542": "Dayton",
-  "543": "Springfield-Holyoke",
-  "544": "Norfolk-Portsmth-Newpt Nws",
-  "545": "Greenville-N.Bern-Washngtn",
-  "546": "Columbia, SC",
-  "547": "Toledo",
-  "548": "West Palm Beach-Ft. Pierce",
-  "549": "Watertown",
-  "550": "Wilmington",
-  "551": "Lansing",
-  "552": "Presque Isle",
-  "553": "Marquette",
-  "554": "Wheeling-Steubenville",
-  "555": "Syracuse",
-  "556": "Richmond-Petersburg",
-  "557": "Knoxville",
-  "558": "Lima",
-  "559": "Bluefield-Beckley-Oak Hill",
-  "560": "Raleigh-Durham (Fayetvlle)",
-  "561": "Jacksonville",
-  "563": "Grand Rapids-Kalmzoo-B.Crk",
-  "564": "Charleston-Huntington",
-  "565": "Elmira (Corning)",
-  "566": "Harrisburg-Lncstr-Leb-York",
-  "567": "Greenvll-Spart-Ashevll-And",
-  "569": "Harrisonburg",
-  "570": "Myrtle Beach-Florence",
-  "571": "Ft. Myers-Naples",
-  "573": "Roanoke-Lynchburg",
-  "574": "Johnstown-Altoona-St Colge",
-  "575": "Chattanooga",
-  "576": "Salisbury",
-  "577": "Wilkes Barre-Scranton-Hztn",
-  "581": "Terre Haute",
-  "582": "Lafayette, IN",
-  "583": "Alpena",
-  "584": "Charlottesville",
-  "588": "South Bend-Elkhart",
-  "592": "Gainesville",
-  "596": "Zanesville",
-  "597": "Parkersburg",
-  "598": "Clarksburg-Weston",
-  "600": "Corpus Christi",
-  "602": "Chicago",
-  "603": "Joplin-Pittsburg",
-  "604": "Columbia-Jefferson City",
-  "605": "Topeka",
-  "606": "Dothan",
-  "609": "St. Louis",
-  "610": "Rockford",
-  "611": "Rochestr-Mason City-Austin",
-  "612": "Shreveport",
-  "613": "Minneapolis-St. Paul",
-  "616": "Kansas City",
-  "617": "Milwaukee",
-  "618": "Houston",
-  "619": "Springfield, MO",
-  "622": "New Orleans",
-  "623": "Dallas-Ft. Worth",
-  "624": "Sioux City",
-  "625": "Waco-Temple-Bryan",
-  "626": "Victoria",
-  "627": "Wichita Falls & Lawton",
-  "628": "Monroe-El Dorado",
-  "630": "Birmingham (Ann and Tusc)",
-  "631": "Ottumwa-Kirksville",
-  "632": "Paducah-Cape Girard-Harsbg",
-  "633": "Odessa-Midland",
-  "634": "Amarillo",
-  "635": "Austin",
-  "636": "Harlingen-Wslco-Brnsvl-McA",
-  "637": "Cedar Rapids-Wtrlo-IWC&Dub",
-  "638": "St. Joseph",
-  "639": "Jackson, TN",
-  "640": "Memphis",
-  "641": "San Antonio",
-  "642": "Lafayette, LA",
-  "643": "Lake Charles",
-  "644": "Alexandria, LA",
-  "647": "Greenwood-Greenville",
-  "648": "Champaign&Sprngfld-Decatur",
-  "649": "Evansville",
-  "650": "Oklahoma City",
-  "651": "Lubbock",
-  "652": "Omaha",
-  "656": "Panama City",
-  "657": "Sherman-Ada",
-  "658": "Green Bay-Appleton",
-  "659": "Nashville",
-  "661": "San Angelo",
-  "662": "Abilene-Sweetwater",
-  "669": "Madison",
-  "670": "Ft. Smith-Fay-Sprngdl-Rgrs",
-  "671": "Tulsa",
-  "673": "Columbus-Tupelo-W Pnt-Hstn",
-  "675": "Peoria-Bloomington",
-  "676": "Duluth-Superior",
-  "678": "Wichita-Hutchinson Plus",
-  "679": "Des Moines-Ames",
-  "682": "Davenport-R.Island-Moline",
-  "686": "Mobile-Pensacola (Ft Walt)",
-  "687": "Minot-Bsmrck-Dcknsn(Wlstn)",
-  "691": "Huntsville-Decatur (Flor)",
-  "692": "Beaumont-Port Arthur",
-  "693": "Little Rock-Pine Bluff",
-  "698": "Montgomery-Selma",
-  "702": "La Crosse-Eau Claire",
-  "705": "Wausau-Rhinelander",
-  "709": "Tyler-Longview(Lfkn&Ncgd)",
-  "710": "Hattiesburg-Laurel",
-  "711": "Meridian",
-  "716": "Baton Rouge",
-  "717": "Quincy-Hannibal-Keokuk",
-  "718": "Jackson, MS",
-  "722": "Lincoln & Hastings-Krny",
-  "724": "Fargo-Valley City",
-  "725": "Sioux Falls(Mitchell)",
-  "734": "Jonesboro",
-  "736": "Bowling Green",
-  "737": "Mankato",
-  "740": "North Platte",
-  "743": "Anchorage",
-  "744": "Honolulu",
-  "745": "Fairbanks",
-  "746": "Biloxi-Gulfport",
-  "747": "Juneau",
-  "749": "Laredo",
-  "751": "Denver",
-  "752": "Colorado Springs-Pueblo",
-  "753": "Phoenix (Prescott)",
-  "754": "Butte-Bozeman",
-  "755": "Great Falls",
-  "756": "Billings",
-  "757": "Boise",
-  "758": "Idaho Fals-Pocatllo(Jcksn)",
-  "759": "Cheyenne-Scottsbluff",
-  "760": "Twin Falls",
-  "762": "Missoula",
-  "764": "Rapid City",
-  "765": "El Paso (Las Cruces)",
-  "766": "Helena",
-  "767": "Casper-Riverton",
-  "770": "Salt Lake City",
-  "771": "Yuma-El Centro",
-  "773": "Grand Junction-Montrose",
-  "789": "Tucson (Sierra Vista)",
-  "790": "Albuquerque-Santa Fe",
-  "798": "Glendive",
-  "800": "Bakersfield",
-  "801": "Eugene",
-  "802": "Eureka",
-  "803": "Los Angeles",
-  "804": "Palm Springs",
-  "807": "San Francisco-Oak-San Jose",
-  "810": "Yakima-Pasco-Rchlnd-Knnwck",
-  "811": "Reno",
-  "813": "Medford-Klamath Falls",
-  "819": "Seattle-Tacoma",
-  "820": "Portland, OR",
-  "821": "Bend, OR",
-  "825": "San Diego",
-  "828": "Monterey-Salinas",
-  "839": "Las Vegas",
-  "855": "SantaBarbra-SanMar-SanLuOb",
-  "862": "Sacramnto-Stkton-Modesto",
-  "866": "Fresno-Visalia",
-  "868": "Chico-Redding",
-  "881": "Spokane"
-}
+  500: "Portland-Auburn",
+  501: "New York",
+  502: "Binghamton",
+  503: "Macon",
+  504: "Philadelphia",
+  505: "Detroit",
+  506: "Boston (Manchester)",
+  507: "Savannah",
+  508: "Pittsburgh",
+  509: "Ft. Wayne",
+  510: "Cleveland-Akron (Canton)",
+  511: "Washington, DC (Hagrstwn)",
+  512: "Baltimore",
+  513: "Flint-Saginaw-Bay City",
+  514: "Buffalo",
+  515: "Cincinnati",
+  516: "Erie",
+  517: "Charlotte",
+  518: "Greensboro-H.Point-W.Salem",
+  519: "Charleston, SC",
+  520: "Augusta-Aiken",
+  521: "Providence-New Bedford",
+  522: "Columbus, GA (Opelika, AL)",
+  523: "Burlington-Plattsburgh",
+  524: "Atlanta",
+  525: "Albany, GA",
+  526: "Utica",
+  527: "Indianapolis",
+  528: "Miami-Ft. Lauderdale",
+  529: "Louisville",
+  530: "Tallahassee-Thomasville",
+  531: "Tri-Cities, TN-VA",
+  532: "Albany-Schenectady-Troy",
+  533: "Hartford & New Haven",
+  534: "Orlando-Daytona Bch-Melbrn",
+  535: "Columbus, OH",
+  536: "Youngstown",
+  537: "Bangor",
+  538: "Rochester, NY",
+  539: "Tampa-St. Pete (Sarasota)",
+  540: "Traverse City-Cadillac",
+  541: "Lexington",
+  542: "Dayton",
+  543: "Springfield-Holyoke",
+  544: "Norfolk-Portsmth-Newpt Nws",
+  545: "Greenville-N.Bern-Washngtn",
+  546: "Columbia, SC",
+  547: "Toledo",
+  548: "West Palm Beach-Ft. Pierce",
+  549: "Watertown",
+  550: "Wilmington",
+  551: "Lansing",
+  552: "Presque Isle",
+  553: "Marquette",
+  554: "Wheeling-Steubenville",
+  555: "Syracuse",
+  556: "Richmond-Petersburg",
+  557: "Knoxville",
+  558: "Lima",
+  559: "Bluefield-Beckley-Oak Hill",
+  560: "Raleigh-Durham (Fayetvlle)",
+  561: "Jacksonville",
+  563: "Grand Rapids-Kalmzoo-B.Crk",
+  564: "Charleston-Huntington",
+  565: "Elmira (Corning)",
+  566: "Harrisburg-Lncstr-Leb-York",
+  567: "Greenvll-Spart-Ashevll-And",
+  569: "Harrisonburg",
+  570: "Myrtle Beach-Florence",
+  571: "Ft. Myers-Naples",
+  573: "Roanoke-Lynchburg",
+  574: "Johnstown-Altoona-St Colge",
+  575: "Chattanooga",
+  576: "Salisbury",
+  577: "Wilkes Barre-Scranton-Hztn",
+  581: "Terre Haute",
+  582: "Lafayette, IN",
+  583: "Alpena",
+  584: "Charlottesville",
+  588: "South Bend-Elkhart",
+  592: "Gainesville",
+  596: "Zanesville",
+  597: "Parkersburg",
+  598: "Clarksburg-Weston",
+  600: "Corpus Christi",
+  602: "Chicago",
+  603: "Joplin-Pittsburg",
+  604: "Columbia-Jefferson City",
+  605: "Topeka",
+  606: "Dothan",
+  609: "St. Louis",
+  610: "Rockford",
+  611: "Rochestr-Mason City-Austin",
+  612: "Shreveport",
+  613: "Minneapolis-St. Paul",
+  616: "Kansas City",
+  617: "Milwaukee",
+  618: "Houston",
+  619: "Springfield, MO",
+  622: "New Orleans",
+  623: "Dallas-Ft. Worth",
+  624: "Sioux City",
+  625: "Waco-Temple-Bryan",
+  626: "Victoria",
+  627: "Wichita Falls & Lawton",
+  628: "Monroe-El Dorado",
+  630: "Birmingham (Ann and Tusc)",
+  631: "Ottumwa-Kirksville",
+  632: "Paducah-Cape Girard-Harsbg",
+  633: "Odessa-Midland",
+  634: "Amarillo",
+  635: "Austin",
+  636: "Harlingen-Wslco-Brnsvl-McA",
+  637: "Cedar Rapids-Wtrlo-IWC&Dub",
+  638: "St. Joseph",
+  639: "Jackson, TN",
+  640: "Memphis",
+  641: "San Antonio",
+  642: "Lafayette, LA",
+  643: "Lake Charles",
+  644: "Alexandria, LA",
+  647: "Greenwood-Greenville",
+  648: "Champaign&Sprngfld-Decatur",
+  649: "Evansville",
+  650: "Oklahoma City",
+  651: "Lubbock",
+  652: "Omaha",
+  656: "Panama City",
+  657: "Sherman-Ada",
+  658: "Green Bay-Appleton",
+  659: "Nashville",
+  661: "San Angelo",
+  662: "Abilene-Sweetwater",
+  669: "Madison",
+  670: "Ft. Smith-Fay-Sprngdl-Rgrs",
+  671: "Tulsa",
+  673: "Columbus-Tupelo-W Pnt-Hstn",
+  675: "Peoria-Bloomington",
+  676: "Duluth-Superior",
+  678: "Wichita-Hutchinson Plus",
+  679: "Des Moines-Ames",
+  682: "Davenport-R.Island-Moline",
+  686: "Mobile-Pensacola (Ft Walt)",
+  687: "Minot-Bsmrck-Dcknsn(Wlstn)",
+  691: "Huntsville-Decatur (Flor)",
+  692: "Beaumont-Port Arthur",
+  693: "Little Rock-Pine Bluff",
+  698: "Montgomery-Selma",
+  702: "La Crosse-Eau Claire",
+  705: "Wausau-Rhinelander",
+  709: "Tyler-Longview(Lfkn&Ncgd)",
+  710: "Hattiesburg-Laurel",
+  711: "Meridian",
+  716: "Baton Rouge",
+  717: "Quincy-Hannibal-Keokuk",
+  718: "Jackson, MS",
+  722: "Lincoln & Hastings-Krny",
+  724: "Fargo-Valley City",
+  725: "Sioux Falls(Mitchell)",
+  734: "Jonesboro",
+  736: "Bowling Green",
+  737: "Mankato",
+  740: "North Platte",
+  743: "Anchorage",
+  744: "Honolulu",
+  745: "Fairbanks",
+  746: "Biloxi-Gulfport",
+  747: "Juneau",
+  749: "Laredo",
+  751: "Denver",
+  752: "Colorado Springs-Pueblo",
+  753: "Phoenix (Prescott)",
+  754: "Butte-Bozeman",
+  755: "Great Falls",
+  756: "Billings",
+  757: "Boise",
+  758: "Idaho Fals-Pocatllo(Jcksn)",
+  759: "Cheyenne-Scottsbluff",
+  760: "Twin Falls",
+  762: "Missoula",
+  764: "Rapid City",
+  765: "El Paso (Las Cruces)",
+  766: "Helena",
+  767: "Casper-Riverton",
+  770: "Salt Lake City",
+  771: "Yuma-El Centro",
+  773: "Grand Junction-Montrose",
+  789: "Tucson (Sierra Vista)",
+  790: "Albuquerque-Santa Fe",
+  798: "Glendive",
+  800: "Bakersfield",
+  801: "Eugene",
+  802: "Eureka",
+  803: "Los Angeles",
+  804: "Palm Springs",
+  807: "San Francisco-Oak-San Jose",
+  810: "Yakima-Pasco-Rchlnd-Knnwck",
+  811: "Reno",
+  813: "Medford-Klamath Falls",
+  819: "Seattle-Tacoma",
+  820: "Portland, OR",
+  821: "Bend, OR",
+  825: "San Diego",
+  828: "Monterey-Salinas",
+  839: "Las Vegas",
+  855: "SantaBarbra-SanMar-SanLuOb",
+  862: "Sacramnto-Stkton-Modesto",
+  866: "Fresno-Visalia",
+  868: "Chico-Redding",
+  881: "Spokane",
+};
 
 const continents = {
-  AF: 'Africa',
-  AN: 'Antarctica',
-  AS: 'Asia',
-  EU: 'Europe',
-  NA: 'North America',
-  OC: 'Oceania',
-  SA: 'South America',
-}
+  AF: "Africa",
+  AN: "Antarctica",
+  AS: "Asia",
+  EU: "Europe",
+  NA: "North America",
+  OC: "Oceania",
+  SA: "South America",
+};
