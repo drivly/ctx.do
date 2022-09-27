@@ -33,7 +33,7 @@ export default {
         segment.slice(0, 1) == ':' ? segment.slice(1) : undefined
       )
       .filter((n) => n)
-    const rootPath == pathname == '/' || pathname == '/api'
+    const rootPath = pathname == '/' || pathname == '/api'
     const hostSegments = hostname.split('.')
     const [tld, sld, ...subdomains] = hostSegments.reverse()
     const [subdomain, subsubdomain] = subdomains
