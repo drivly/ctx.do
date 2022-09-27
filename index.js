@@ -1,6 +1,6 @@
-import { jwtVerify } from 'https://pkg.do/jose@4.9.2'
-import { getDistance } from 'https://pkg.do/geolib@3.3.3'
-import { UAParser } from 'https://pkg.do/ua-parser-js@1.0.2'
+import { jwtVerify } from 'https://unpkg.com/jose@4.9.2'
+import { getDistance } from 'https://unpkg.com/geolib@3.3.3'
+import { UAParser } from 'https://unpkg.com/ua-parser-js@1.0.2'
 
 const interactionCounter = {}
 const hashes = {}
