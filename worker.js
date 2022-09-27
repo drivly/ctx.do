@@ -20,6 +20,9 @@ export default {
     const pathSegments = pathname.slice(1).split('/')
     const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
     const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined).filter(n => n)
+    const hostSegments = hostname.split('.')
+    const [ tld, sld, ...subdomains ] = hostSegments
+    const [ subdomain, subsubdomain ] = subdomains
     const headers = Object.fromEntries(req.headers)
     const authCookie = '__Session-worker.auth.providers-token='
     let body = ''
@@ -90,6 +93,12 @@ export default {
       pathSegments,
       pathOptions,
       pathDefaults,
+      hostSegments,
+      tld, 
+      sld,
+      subdomains,
+      subdomain, 
+      subsubdomain,
       ts,
       time,
       body,
