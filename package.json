@@ -19,6 +19,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write '**/*.{js,css,json,md}'"
   },
+  "prettier": {
+    "singleQuote": true,
+    "tabWidth": 2
+  },
   "devDependencies": {
     "eslint": "^8.23.0",
     "jest": "^28.1.3",
