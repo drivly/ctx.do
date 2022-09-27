@@ -1,74 +1,74 @@
-import { jwtVerify } from 'jose';
-import { getDistance } from 'geolib';
-import { UAParser } from 'ua-parser-js';
+import { jwtVerify } from 'jose'
+import { getDistance } from 'geolib'
+import { UAParser } from 'ua-parser-js'
 
-const interactionCounter = {};
-const hashes = {};
-let instanceStart = undefined;
-let instancePrefix = undefined;
-let instanceCreatedBy = undefined;
-let instanceCreated = undefined;
-let instanceId = undefined;
-let instanceRequests = 0;
+const interactionCounter = {}
+const hashes = {}
+let instanceStart = undefined
+let instancePrefix = undefined
+let instanceCreatedBy = undefined
+let instanceCreated = undefined
+let instanceId = undefined
+let instanceRequests = 0
 
 export default {
   fetch: async (req, env) => {
-    const ip = req.headers.get('CF-Connecting-IP');
-    const { url, cf, method } = req;
-    const { timezone, latitude, longitude } = cf;
+    const ip = req.headers.get('CF-Connecting-IP')
+    const { url, cf, method } = req
+    const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(
       url
-    );
-    const pathSegments = decodeURI(pathname).slice(1).split('/');
+    )
+    const pathSegments = decodeURI(pathname).slice(1).split('/')
     const pathOptions =
       pathSegments[0] && pathSegments[0].includes('=')
         ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
-        : undefined;
+        : undefined
     const pathDefaults = pathSegments
       .map((segment) =>
         segment.slice(0, 1) == ':' ? segment.slice(1) : undefined
       )
-      .filter((n) => n);
-    const hostSegments = hostname.split('.');
-    const [tld, sld, ...subdomains] = hostSegments.reverse();
-    const [subdomain, subsubdomain] = subdomains;
-    const headers = Object.fromEntries(req.headers);
-    const authCookie = '__Session-worker.auth.providers-token=';
-    let body = '';
+      .filter((n) => n)
+    const hostSegments = hostname.split('.')
+    const [tld, sld, ...subdomains] = hostSegments.reverse()
+    const [subdomain, subsubdomain] = subdomains
+    const headers = Object.fromEntries(req.headers)
+    const authCookie = '__Session-worker.auth.providers-token='
+    let body = ''
     try {
-      body = req.body ? await req.json() : undefined;
+      body = req.body ? await req.json() : undefined
     } catch {
-      body = undefined;
+      body = undefined
     }
     interactionCounter[ip] = interactionCounter[ip]
       ? interactionCounter[ip] + 1
-      : 1;
-    const ts = Date.now();
-    const time = new Date(ts).toISOString();
+      : 1
+    const ts = Date.now()
+    const time = new Date(ts).toISOString()
     const localTime = new Date(ts).toLocaleString('en-US', {
       timeZone: cf.timezone,
-    });
+    })
 
-    let profile = null;
+    let profile = null
     const token = req.headers
       .get('cookie')
       ?.split(';')
       ?.find((c) => c.trim().startsWith(authCookie))
       ?.trim()
-      ?.slice(authCookie.length);
-    let jwt = null;
+      ?.slice(authCookie.length)
+    let jwt = null
     if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
       const userData = await env.APIKEYS.fetch(req).then(
         (res) => res.ok && res.json()
-      );
-      profile = userData?.profile || null;
+      )
+      profile = userData?.profile || null
     }
     if (!profile && token) {
       try {
         const domain = new URL(req.url).hostname.replace(
           /.*\.([^.]+.[^.]+)$/,
           '$1'
-        );
+        )
         jwt =
           hashes[token] ||
           (hashes[token] = await jwtVerify(
@@ -80,43 +80,43 @@ export default {
               )
             ),
             { issuer: domain }
-          ));
-        profile = jwt?.payload?.profile;
+          ))
+        profile = jwt?.payload?.profile
       } catch (error) {
-        console.error({ error });
+        console.error({ error })
       }
     }
 
-    const colo = locations[req.cf.colo];
+    const colo = locations[req.cf.colo]
     const edgeDistance = Math.round(
       getDistance(
         { latitude, longitude },
         { latitude: colo?.lat, longitude: colo?.lon }
       ) / (req.cf.country === 'US' ? 1609.344 : 1000)
-    );
+    )
 
-    const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo;
+    const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
 
-    const newInstance = instanceCreatedBy ? false : true;
-    if (!instanceCreatedBy) instanceCreatedBy = requestId;
-    if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16);
-    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12);
-    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16);
-    instanceRequests = instanceRequests + 1;
-    if (!instanceCreated) instanceCreated = ts;
-    const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart;
-    const instanceDurationMilliseconds = ts - instanceCreated;
+    const newInstance = instanceCreatedBy ? false : true
+    if (!instanceCreatedBy) instanceCreatedBy = requestId
+    if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
+    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12)
+    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
+    instanceRequests = instanceRequests + 1
+    if (!instanceCreated) instanceCreated = ts
+    const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart
+    const instanceDurationMilliseconds = ts - instanceCreated
     const instanceDurationSeconds = Math.floor(
       instanceDurationMilliseconds / 1000
-    );
+    )
 
-    const userAgent = headers['user-agent'];
-    const ua = new UAParser(userAgent).getResult();
+    const userAgent = headers['user-agent']
+    const ua = new UAParser(userAgent).getResult()
     const city = req.cf.city,
       region = req.cf.region,
       country = countries[req.cf.country]?.name,
-      continent = continents[req.cf.continent];
-    const location = `${city}, ${region}, ${country}, ${continent}`;
+      continent = continents[req.cf.continent]
+    const location = `${city}, ${region}, ${country}, ${continent}`
     const retval = JSON.stringify(
       {
         api: {
@@ -199,15 +199,15 @@ export default {
       },
       null,
       2
-    );
+    )
     return new Response(method === 'HEAD' ? null : retval, {
       headers: {
         'content-type': 'application/json; charset=utf-8',
         'x-content-length': retval.length.toString(),
       },
-    });
+    })
   },
-};
+}
 
 const locations = {
   TIA: {
@@ -2250,7 +2250,7 @@ const locations = {
     region: 'Africa',
     city: 'Harare',
   },
-};
+}
 
 const flags = {
   AF: '🇦🇫',
@@ -2447,7 +2447,7 @@ const flags = {
   ZA: '🇿🇦',
   ZM: '🇿🇲',
   ZW: '🇿🇼',
-};
+}
 
 const countries = {
   AF: { name: 'Afghanistan', cca2: 'AF', flag: '🇦🇫', code: '93' },
@@ -2649,7 +2649,7 @@ const countries = {
   ZA: { name: 'South Africa', cca2: 'ZA', flag: '🇿🇦', code: '27' },
   ZM: { name: 'Zambia', cca2: 'ZM', flag: '🇿🇲', code: '260' },
   ZW: { name: 'Zimbabwe', cca2: 'ZW', flag: '🇿🇼', code: '263' },
-};
+}
 
 const metros = {
   500: 'Portland-Auburn',
@@ -2862,7 +2862,7 @@ const metros = {
   866: 'Fresno-Visalia',
   868: 'Chico-Redding',
   881: 'Spokane',
-};
+}
 
 const continents = {
   AF: 'Africa',
@@ -2872,4 +2872,4 @@ const continents = {
   NA: 'North America',
   OC: 'Oceania',
   SA: 'South America',
-};
+}
