@@ -17,7 +17,7 @@ export default {
     const { url, cf, method } = req
     const { timezone, latitude, longitude } = cf
     const { hostname, pathname, search, searchParams, hash, origin } = new URL(url)
-    const pathSegments = pathname.slice(1).split('/')
+    const pathSegments = decodeURI(pathname).slice(1).split('/')
     const pathOptions = (pathSegments[0] && pathSegments[0].includes('=')) ? Object.fromEntries(new URLSearchParams(pathSegments[0])) : undefined
     const pathDefaults = pathSegments.map(segment => segment.slice(0,1) == ':' ? segment.slice(1) : undefined).filter(n => n)
     const hostSegments = hostname.split('.')
