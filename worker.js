@@ -153,6 +153,8 @@ export default {
         ts,
         time,
         body,
+        text,
+        json,
         url,
         method,
         userAgent,
