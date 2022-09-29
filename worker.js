@@ -1,10 +1,10 @@
-import { jwtVerify } from 'https://esb.deno.dev/https://deno.land/x/jose@v4.10.0/index.ts'
-import { getDistance } from 'https://unpkg.com/geolib@3.3.3'
-import { UAParser } from 'https://unpkg.com/ua-parser-js@1.0.2'
+// import { jwtVerify } from 'https://esb.deno.dev/https://deno.land/x/jose@v4.10.0/index.ts'
+// import { getDistance } from 'https://unpkg.com/geolib@3.3.3'
+// import { UAParser } from 'https://unpkg.com/ua-parser-js@1.0.2'
 
-// import { jwtVerify } from 'jose'
-// import { getDistance } from 'geolib'
-// import { UAParser } from 'ua-parser-js'
+import { jwtVerify } from 'jose'
+import { getDistance } from 'geolib'
+import { UAParser } from 'ua-parser-js'
 
 const interactionCounter = {}
 const hashes = {}
