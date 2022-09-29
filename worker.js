@@ -17,199 +17,211 @@ let instanceRequests = 0
 
 export default {
   fetch: async (req, env) => {
-    const ip = req.headers.get('CF-Connecting-IP')
-    const { url, cf, method } = req
-    const { timezone, latitude, longitude } = cf
-    const { hostname, pathname, search, searchParams, hash, origin } = new URL(
-      url
-    )
-    const pathSegments = decodeURI(pathname).slice(1).split('/')
-    const pathOptions =
-      pathSegments[0] && pathSegments[0].includes('=')
-        ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
-        : undefined
-    const pathDefaults = pathSegments
-      .map((segment) =>
-        segment.slice(0, 1) == ':' ? segment.slice(1) : undefined
-      )
-      .filter((n) => n)
-    const rootPath = pathname == '/' || pathname == '/api'
-    const hostSegments = hostname.split('.')
-    const [tld, sld, ...subdomains] = hostSegments.reverse()
-    const [subdomain, subsubdomain] = subdomains
-    const headers = Object.fromEntries(req.headers)
-    let body, text, json = undefined
     try {
-      text = req.body ? await req.text() : undefined
-      json = text ? JSON.parse(text) : undefined
-      body = json ?? text
-    } catch {
-      body = text
-    }
-    interactionCounter[ip] = interactionCounter[ip]
-      ? interactionCounter[ip] + 1
-      : 1
-    const ts = Date.now()
-    const time = new Date(ts).toISOString()
-    const localTime = new Date(ts).toLocaleString('en-US', {
-      timeZone: cf.timezone,
-    })
-
-    let profile = null
-    const cookies = Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
-    const token = cookies['__Secure-worker.auth.providers-token']
-    let jwt = null
-    if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
-      const userData = await env.APIKEYS.fetch(req).then(
-        (res) => res.ok && res.json()
+      const ip = req.headers.get('CF-Connecting-IP')
+      const { url, cf, method } = req
+      const { timezone, latitude, longitude } = cf
+      const { hostname, pathname, search, searchParams, hash, origin } = new URL(
+        url
       )
-      profile = userData?.profile || null
-    }
-    if (!profile && token) {
-      try {
-        const domain = hostname.replace(
-          /.*\.([^.]+.[^.]+)$/,
-          '$1'
+      const pathSegments = decodeURI(pathname).slice(1).split('/')
+      const pathOptions =
+        pathSegments[0] && pathSegments[0].includes('=')
+          ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
+          : undefined
+      const pathDefaults = pathSegments
+        .map((segment) =>
+          segment.slice(0, 1) == ':' ? segment.slice(1) : undefined
         )
-        jwt =
-          hashes[token] ||
-          (hashes[token] = await jwtVerify(
-            token,
-            new Uint8Array(
-              await crypto.subtle.digest(
-                'SHA-512',
-                new TextEncoder().encode(env.JWT_SECRET + domain)
-              )
-            ),
-            { issuer: domain }
-          ))
-        profile = jwt?.payload?.profile
-      } catch (error) {
-        console.error({ error })
+        .filter((n) => n)
+      const rootPath = pathname == '/' || pathname == '/api'
+      const hostSegments = hostname.split('.')
+      const [tld, sld, ...subdomains] = hostSegments.reverse()
+      const [subdomain, subsubdomain] = subdomains
+      const headers = Object.fromEntries(req.headers)
+      let body, text, json = undefined
+      try {
+        text = req.body ? await req.text() : undefined
+        json = text ? JSON.parse(text) : undefined
+        body = json ?? text
+      } catch {
+        body = text
       }
-    }
+      interactionCounter[ip] = interactionCounter[ip]
+        ? interactionCounter[ip] + 1
+        : 1
+      const ts = Date.now()
+      const time = new Date(ts).toISOString()
+      const localTime = new Date(ts).toLocaleString('en-US', {
+        timeZone: cf.timezone,
+      })
 
-    const colo = locations[req.cf.colo]
-    const edgeDistance = Math.round(
-      getDistance(
-        { latitude, longitude },
-        { latitude: colo?.lat, longitude: colo?.lon }
-      ) / (req.cf.country === 'US' ? 1609.344 : 1000)
-    )
+      let profile = null
+      const cookies = Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
+      const token = cookies['__Secure-worker.auth.providers-token']
+      let jwt = null
+      if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
+        const userData = await env.APIKEYS.fetch(req).then(
+          (res) => res.ok && res.json()
+        )
+        profile = userData?.profile || null
+      }
+      if (!profile && token) {
+        try {
+          const domain = hostname.replace(
+            /.*\.([^.]+.[^.]+)$/,
+            '$1'
+          )
+          jwt =
+            hashes[token] ||
+            (hashes[token] = await jwtVerify(
+              token,
+              new Uint8Array(
+                await crypto.subtle.digest(
+                  'SHA-512',
+                  new TextEncoder().encode(env.JWT_SECRET + domain)
+                )
+              ),
+              { issuer: domain }
+            ))
+          profile = jwt?.payload?.profile
+        } catch (error) {
+          console.error({ error })
+        }
+      }
 
-    const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
+      const colo = locations[req.cf.colo]
+      const edgeDistance = Math.round(
+        getDistance(
+          { latitude, longitude },
+          { latitude: colo?.lat, longitude: colo?.lon }
+        ) / (req.cf.country === 'US' ? 1609.344 : 1000)
+      )
 
-    const newInstance = instanceCreatedBy ? false : true
-    if (!instanceCreatedBy) instanceCreatedBy = requestId
-    if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
-    if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12)
-    if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
-    instanceRequests = instanceRequests + 1
-    if (!instanceCreated) instanceCreated = ts
-    const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart
-    const instanceDurationMilliseconds = ts - instanceCreated
-    const instanceDurationSeconds = Math.floor(
-      instanceDurationMilliseconds / 1000
-    )
+      const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
 
-    const userAgent = headers['user-agent']
-    const ua = new UAParser(userAgent).getResult()
-    const city = req.cf.city,
-      region = req.cf.region,
-      country = countries[req.cf.country]?.name,
-      continent = continents[req.cf.continent]
-    const retval = JSON.stringify(
-      {
-        api: {
-          icon: '🌎',
-          name: 'ctx.do',
-          description: 'Context Enrichment',
-          url: 'https://ctx.do',
-          endpoints: {
-            context: 'https://ctx.do/api',
+      const newInstance = instanceCreatedBy ? false : true
+      if (!instanceCreatedBy) instanceCreatedBy = requestId
+      if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
+      if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12)
+      if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
+      instanceRequests = instanceRequests + 1
+      if (!instanceCreated) instanceCreated = ts
+      const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart
+      const instanceDurationMilliseconds = ts - instanceCreated
+      const instanceDurationSeconds = Math.floor(
+        instanceDurationMilliseconds / 1000
+      )
+
+      const userAgent = headers['user-agent']
+      const ua = new UAParser(userAgent).getResult()
+      const city = req.cf.city,
+        region = req.cf.region,
+        country = countries[req.cf.country]?.name,
+        continent = continents[req.cf.continent]
+      const retval = JSON.stringify(
+        {
+          api: {
+            icon: '🌎',
+            name: 'ctx.do',
+            description: 'Context Enrichment',
+            url: 'https://ctx.do',
+            endpoints: {
+              context: 'https://ctx.do/api',
+            },
+            memberOf: 'https://apis.do/core',
+            login: origin + '/login',
+            logout: origin + '/logout',
+            repo: 'https://github.com/drivly/ctx.do',
           },
-          memberOf: 'https://apis.do/core',
-          login: origin + '/login',
-          logout: origin + '/logout',
-          repo: 'https://github.com/drivly/ctx.do',
-        },
-        colo,
-        hostname,
-        pathname,
-        search,
-        hash,
-        origin,
-        query: Object.fromEntries(searchParams),
-        pathSegments,
-        pathOptions,
-        pathDefaults,
-        rootPath,
-        hostSegments,
-        tld,
-        sld,
-        subdomains,
-        subdomain,
-        subsubdomain,
-        ts,
-        time,
-        body,
-        text,
-        json,
-        url,
-        method,
-        userAgent,
-        ua,
-        jwt: jwt || undefined,
-        cf,
-        requestId,
-        newInstance,
-        instanceId,
-        instanceCreatedBy,
-        instancePrefix,
-        instanceStart,
-        instanceCreated,
-        instanceDiff,
-        instanceDurationMilliseconds,
-        instanceDurationSeconds,
-        instanceRequests,
-        instanceInteractions: profile ? interactionCounter : undefined,
-        headers,
-        cookies,
-        user: {
-          authenticated: profile !== null,
-          profile: profile || undefined,
-          plan: '🛠 Build',
-          browser: ua?.browser?.name,
-          os: ua?.os?.name,
-          ip,
-          isp: req.cf.asOrganization,
-          flag: flags[req.cf.country],
-          zipcode: req.cf.postalCode,
-          city,
-          metro: metros[req.cf.metroCode],
-          region,
-          country,
-          continent,
+          colo,
+          hostname,
+          pathname,
+          search,
+          hash,
+          origin,
+          query: Object.fromEntries(searchParams),
+          pathSegments,
+          pathOptions,
+          pathDefaults,
+          rootPath,
+          hostSegments,
+          tld,
+          sld,
+          subdomains,
+          subdomain,
+          subsubdomain,
+          ts,
+          time,
+          body,
+          text,
+          json,
+          url,
+          method,
+          userAgent,
+          ua,
+          jwt: jwt || undefined,
+          cf,
           requestId,
-          localTime,
-          timezone,
-          edgeLocation: colo?.city,
-          edgeDistanceMiles: req.cf.country === 'US' ? edgeDistance : undefined,
-          edgeDistanceKilometers:
-            req.cf.country === 'US' ? undefined : edgeDistance,
-          latencyMilliseconds: req.cf.clientTcpRtt,
-          recentInteractions: interactionCounter[ip],
-          trustScore: profile ? 99 : req.cf?.botManagement?.score,
+          newInstance,
+          instanceId,
+          instanceCreatedBy,
+          instancePrefix,
+          instanceStart,
+          instanceCreated,
+          instanceDiff,
+          instanceDurationMilliseconds,
+          instanceDurationSeconds,
+          instanceRequests,
+          instanceInteractions: profile ? interactionCounter : undefined,
+          headers,
+          cookies,
+          user: {
+            authenticated: profile !== null,
+            profile: profile || undefined,
+            plan: '🛠 Build',
+            browser: ua?.browser?.name,
+            os: ua?.os?.name,
+            ip,
+            isp: req.cf.asOrganization,
+            flag: flags[req.cf.country],
+            zipcode: req.cf.postalCode,
+            city,
+            metro: metros[req.cf.metroCode],
+            region,
+            country,
+            continent,
+            requestId,
+            localTime,
+            timezone,
+            edgeLocation: colo?.city,
+            edgeDistanceMiles: req.cf.country === 'US' ? edgeDistance : undefined,
+            edgeDistanceKilometers:
+              req.cf.country === 'US' ? undefined : edgeDistance,
+            latencyMilliseconds: req.cf.clientTcpRtt,
+            recentInteractions: interactionCounter[ip],
+            trustScore: profile ? 99 : req.cf?.botManagement?.score,
+          },
         },
-      },
-      null,
-      2
-    )
-    return new Response(method === 'HEAD' ? null : retval, {
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-      },
-    })
+        null,
+        2
+      )
+      return new Response(method === 'HEAD' ? null : retval, {
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+        },
+      })
+    } catch(err) {
+      const { name, message, trace } = err
+      const error = { name, message, trace }
+      console.log({error})
+      return new Response(JSON.stringify({ error }}null, 2),{
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+        },
+      })
+    }
+    
   },
 }
 
