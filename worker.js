@@ -38,11 +38,13 @@ export default {
     const [tld, sld, ...subdomains] = hostSegments.reverse()
     const [subdomain, subsubdomain] = subdomains
     const headers = Object.fromEntries(req.headers)
-    let body = ''
+    let body, text, json = undefined
     try {
-      body = req.body ? await req.json() : undefined
+      text = req.body ? await req.text() : undefined
+      json = JSON.parse(text)
+      body = json ?? text
     } catch {
-      body = undefined
+      body = text
     }
     interactionCounter[ip] = interactionCounter[ip]
       ? interactionCounter[ip] + 1
