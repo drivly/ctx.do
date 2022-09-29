@@ -38,7 +38,6 @@ export default {
     const [tld, sld, ...subdomains] = hostSegments.reverse()
     const [subdomain, subsubdomain] = subdomains
     const headers = Object.fromEntries(req.headers)
-    const authCookie = '__Session-worker.auth.providers-token='
     let body = ''
     try {
       body = req.body ? await req.json() : undefined
@@ -55,12 +54,8 @@ export default {
     })
 
     let profile = null
-    const token = req.headers
-      .get('cookie')
-      ?.split(';')
-      ?.find((c) => c.trim().startsWith(authCookie))
-      ?.trim()
-      ?.slice(authCookie.length)
+    const cookies = Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
+    const token = cookies['__Secure-worker.auth.providers-token']
     let jwt = null
     if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
       const userData = await env.APIKEYS.fetch(req).then(
@@ -70,7 +65,7 @@ export default {
     }
     if (!profile && token) {
       try {
-        const domain = new URL(req.url).hostname.replace(
+        const domain = hostname.replace(
           /.*\.([^.]+.[^.]+)$/,
           '$1'
         )
@@ -121,7 +116,6 @@ export default {
       region = req.cf.region,
       country = countries[req.cf.country]?.name,
       continent = continents[req.cf.continent]
-    const location = `${city}, ${region}, ${country}, ${continent}`
     const retval = JSON.stringify(
       {
         api: {
@@ -176,6 +170,7 @@ export default {
         instanceRequests,
         instanceInteractions: profile ? interactionCounter : undefined,
         headers,
+        cookies,
         user: {
           authenticated: profile !== null,
           profile: profile || undefined,
@@ -209,7 +204,6 @@ export default {
     return new Response(method === 'HEAD' ? null : retval, {
       headers: {
         'content-type': 'application/json; charset=utf-8',
-        'x-content-length': retval.length.toString(),
       },
     })
   },
