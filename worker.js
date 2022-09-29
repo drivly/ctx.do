@@ -41,7 +41,7 @@ export default {
     let body, text, json = undefined
     try {
       text = req.body ? await req.text() : undefined
-      json = JSON.parse(text)
+      json = text ? JSON.parse(text) : undefined
       body = json ?? text
     } catch {
       body = text
