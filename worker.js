@@ -58,8 +58,8 @@ export default {
       })
 
       let profile = null
-      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
-      const token = cookies['__Secure-worker.auth.providers-token']
+      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
+      const token = cookies?.['__Secure-worker.auth.providers-token']
       let jwt = null
       if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
         const userData = await env.APIKEYS.fetch(req).then(
