@@ -58,7 +58,7 @@ export default {
       })
 
       let profile = null
-      const cookies = Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
+      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie']?.split(';').map(c => c.trim().split('=')))
       const token = cookies['__Secure-worker.auth.providers-token']
       let jwt = null
       if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
@@ -176,7 +176,7 @@ export default {
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
           headers,
-          cookies,
+          cookies: cookies || undefined,
           user: {
             authenticated: profile !== null,
             profile: profile || undefined,
@@ -212,10 +212,10 @@ export default {
           'content-type': 'application/json; charset=utf-8',
         },
       })
-    } catch(err) {
+    } catch (err) {
       const { name, message, trace } = err
       const error = { name, message, trace }
-      console.log({error})
+      console.log({ error })
       return new Response(JSON.stringify({ error }, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
