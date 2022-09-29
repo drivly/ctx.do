@@ -216,13 +216,12 @@ export default {
       const { name, message, trace } = err
       const error = { name, message, trace }
       console.log({error})
-      return new Response(JSON.stringify({ error }}null, 2),{
+      return new Response(JSON.stringify({ error }, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
       })
     }
-    
   },
 }
 
