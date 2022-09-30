@@ -61,11 +61,14 @@ export default {
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const token = cookies?.['__Secure-worker.auth.providers-token']
       let jwt = null
-      if (req.headers.get('x-api-key') || searchParams.get('apikey')) {
+      const query = Object.fromEntries(searchParams)
+      if (headers['x-api-key'] || query['apikey']) {
         const userData = await env.APIKEYS.fetch(req).then(
           (res) => res.ok && res.json()
         )
         profile = userData?.profile || null
+        headers['x-api-key'] && delete headers['x-api-key']
+        query['apikey'] && query['apikey']
       }
       if (!profile && token) {
         try {
@@ -141,7 +144,7 @@ export default {
           search,
           hash,
           origin,
-          query: Object.fromEntries(searchParams),
+          query,
           pathSegments,
           pathOptions,
           pathDefaults,
@@ -176,7 +179,7 @@ export default {
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
           headers,
-          cookies: cookies || undefined,
+          cookies,
           user: {
             authenticated: profile !== null,
             profile: profile || undefined,
