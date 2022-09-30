@@ -242,11 +242,10 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname, 
 }
 
 async function getAnalytics(env, whereClause) {
-  try {
-    const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
-      body: `SELECT
+  const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
+    body: `SELECT
 blob1 AS rayId,
 blob2 AS apikey,
 blob3 AS ip,
@@ -256,13 +255,14 @@ blob6 AS userAgent,
 blob7 AS ja3Hash,
 timestamp,
 index1 as profileId
-FROM INTERACTIONS${whereClause ? ' WHERE ' + whereClause : ''}`
-    })
+FROM INTERACTIONS${whereClause ? `
+WHERE ${whereClause}` : ''}`
+  })
+  try {
     const json = res.json()
     return json.data
-  } catch (error) {
-    console.log({ error })
-    return error
+  } catch {
+    return res.text()
   }
 }
 
