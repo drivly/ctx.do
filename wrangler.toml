@@ -11,4 +11,4 @@ services = [
 
 [[unsafe.bindings]]
 type = "analytics_engine"
-name = "INTERACTiONS"
+name = "INTERACTIONS"
