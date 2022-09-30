@@ -1,2 +1,2 @@
 remote_theme: drivly/docs
-login: /login?redirect_uri=https://ctx.do/api
+gettingStarted: /login?redirect_uri=https://ctx.do/api
