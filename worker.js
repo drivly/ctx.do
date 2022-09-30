@@ -102,7 +102,8 @@ export default {
         ) / (req.cf.country === 'US' ? 1609.344 : 1000)
       )
 
-      const requestId = req.headers.get('cf-ray') + '-' + req.cf.colo
+      const rayId = req.headers.get('cf-ray')
+      const requestId =  rayId + '-' + req.cf.colo
 
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
@@ -166,6 +167,7 @@ export default {
           ua,
           jwt: jwt || undefined,
           cf,
+          rayId,
           requestId,
           newInstance,
           instanceId,
