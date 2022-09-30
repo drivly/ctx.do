@@ -256,7 +256,7 @@ blob7 AS ja3Hash,
 timestamp,
 index1 as profileId
 FROM INTERACTIONS${whereClause ? ' WHERE ' + whereClause : ''}`
-  }).then(res => res.json()).then(j => j.data)
+  }).then(res => res.json()).then(j => j.data).catch(error => { error })
 }
 
 const locations = {
