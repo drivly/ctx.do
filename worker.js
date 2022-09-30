@@ -72,10 +72,10 @@ export default {
       const rayId = req.headers.get('cf-ray')
       const requestId = rayId + '-' + req.cf.colo
       const isp = req.cf.asOrganization
-      env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent],
-        'indexes': [profile?.id]
-      })
+      // env.INTERACTIONS.writeDataPoint({
+      //   'blobs': [rayId, apikey, ip, url, isp, userAgent],
+      //   'indexes': [profile?.id]
+      // })
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
