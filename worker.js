@@ -68,7 +68,7 @@ export default {
         )
         profile = userData?.profile || null
         headers['x-api-key'] && delete headers['x-api-key']
-        query['apikey'] && query['apikey']
+        query['apikey'] && delete query['apikey']
       }
       if (!profile && token) {
         try {
