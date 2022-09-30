@@ -237,7 +237,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname, 
       console.error({ error })
     }
   }
-  const analytics = await getAnalytics(env, profile?.id ? `index1="${profile?.id}"` : `blob3="${ip}" OR blob7="${ja3Hash}"`)
+  const analytics = await getAnalytics(env, profile?.id ? `index1='${profile?.id}'` : `blob3='${ip}' OR blob7='${ja3Hash}'`)
   return { jwt, profile, analytics }
 }
 
