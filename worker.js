@@ -60,17 +60,17 @@ export default {
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
-      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const colo = locations[req.cf.colo]
+      const { jwt, profile, analytics } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname, ip)
+      const colo = locations[cf.colo]
       const edgeDistance = Math.round(
         getDistance(
           { latitude, longitude },
           { latitude: colo?.lat, longitude: colo?.lon }
-        ) / (req.cf.country === 'US' ? 1609.344 : 1000)
+        ) / (cf.country === 'US' ? 1609.344 : 1000)
       )
 
       const rayId = req.headers.get('cf-ray')
-      const requestId = rayId + '-' + req.cf.colo
+      const requestId = rayId + '-' + cf.colo
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
@@ -86,13 +86,13 @@ export default {
 
       const userAgent = headers['user-agent']
       const ua = new UAParser(userAgent).getResult()
-      const isp = req.cf.asOrganization
-      const city = req.cf.city,
-        region = req.cf.region,
-        country = countries[req.cf.country]?.name,
-        continent = continents[req.cf.continent]
+      const isp = cf.asOrganization
+      const city = cf.city,
+        region = cf.region,
+        country = countries[cf.country]?.name,
+        continent = continents[cf.continent]
       env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent],
+        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf.botManagement.ja3Hash],
         'indexes': [profile?.id]
       })
       const retval = JSON.stringify(
@@ -151,6 +151,7 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
+          analytics,
           headers,
           cookies,
           user: {
@@ -201,7 +202,7 @@ export default {
   },
 }
 
-async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) {
+async function getUserInfo(cookies, apikey, env, req, headers, query, hostname, ip, ja3Hash) {
   let jwt = null
   let profile = null
   if (apikey) {
@@ -236,7 +237,26 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) 
       console.error({ error })
     }
   }
-  return { jwt, profile }
+  const analytics = await getAnalytics(env, profile?.id ? `index1="${profile?.id}"` : `blob3="${ip}" OR blob7="${ja3Hash}"`)
+  return { jwt, profile, analytics }
+}
+
+async function getAnalytics(env, whereClause) {
+  return await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
+    body: `SELECT
+blob1 AS rayId,
+blob2 AS apikey,
+blob3 AS ip,
+blob4 AS url,
+blob5 AS isp,
+blob6 AS userAgent,
+blob7 AS ja3Hash,
+timestamp,
+index1 as profileId
+FROM INTERACTIONS${whereClause ? ' WHERE ' + whereClause : ''}`
+  }).then(res => res.json()).then(j => j.data)
 }
 
 const locations = {
