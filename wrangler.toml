@@ -8,3 +8,7 @@ node_compat = true
 services = [
   { binding = "APIKEYS", service = "apikeys-do", environment = "production" }
 ]
+
+[[unsafe.bindings]]
+type = "analytics_engine"
+name = "INTERACTiONS"

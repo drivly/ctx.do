@@ -51,49 +51,16 @@ export default {
       interactionCounter[ip] = interactionCounter[ip]
         ? interactionCounter[ip] + 1
         : 1
-      const ts = Date.now()
-      const time = new Date(ts).toISOString()
-      const localTime = new Date(ts).toLocaleString('en-US', {
+      const now = new Date()
+      const ts = now.valueOf()
+      const time = now.toISOString()
+      const localTime = now.toLocaleString('en-US', {
         timeZone: cf.timezone,
       })
-
-      let profile = null
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
-      const token = cookies?.['__Secure-worker.auth.providers-token']
-      let jwt = null
       const query = Object.fromEntries(searchParams)
-      if (headers['x-api-key'] || query['apikey']) {
-        const userData = await env.APIKEYS.fetch(req).then(
-          (res) => res.ok && res.json()
-        )
-        profile = userData?.profile || null
-        headers['x-api-key'] && delete headers['x-api-key']
-        query['apikey'] && delete query['apikey']
-      }
-      if (!profile && token) {
-        try {
-          const domain = hostname.replace(
-            /.*\.([^.]+.[^.]+)$/,
-            '$1'
-          )
-          jwt =
-            hashes[token] ||
-            (hashes[token] = await jwtVerify(
-              token,
-              new Uint8Array(
-                await crypto.subtle.digest(
-                  'SHA-512',
-                  new TextEncoder().encode(env.JWT_SECRET + domain)
-                )
-              ),
-              { issuer: domain }
-            ))
-          profile = jwt?.payload?.profile
-        } catch (error) {
-          console.error({ error })
-        }
-      }
-
+      const apikey = headers['x-api-key'] || query['apikey']
+      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
       const colo = locations[req.cf.colo]
       const edgeDistance = Math.round(
         getDistance(
@@ -103,8 +70,12 @@ export default {
       )
 
       const rayId = req.headers.get('cf-ray')
-      const requestId =  rayId + '-' + req.cf.colo
-
+      const requestId = rayId + '-' + req.cf.colo
+      const isp = req.cf.asOrganization
+      env.INTERACTIONS.writeDataPoint({
+        'blobs': [rayId, apikey, ip, url, isp, userAgent],
+        'indexes': [profile?.id]
+      })
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
@@ -189,7 +160,7 @@ export default {
             browser: ua?.browser?.name,
             os: ua?.os?.name,
             ip,
-            isp: req.cf.asOrganization,
+            isp,
             flag: flags[req.cf.country],
             zipcode: req.cf.postalCode,
             city,
@@ -228,6 +199,44 @@ export default {
       })
     }
   },
+}
+
+async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) {
+  let jwt = null
+  let profile = null
+  if (apikey) {
+    const userData = await env.APIKEYS.fetch(req).then(
+      (res) => res.ok && res.json()
+    )
+    profile = userData?.profile || null
+    headers['x-api-key'] && delete headers['x-api-key']
+    query['apikey'] && delete query['apikey']
+  }
+  const token = cookies?.['__Secure-worker.auth.providers-token']
+  if (!profile && token) {
+    try {
+      const domain = hostname.replace(
+        /.*\.([^.]+.[^.]+)$/,
+        '$1'
+      )
+      jwt =
+        hashes[token] ||
+        (hashes[token] = await jwtVerify(
+          token,
+          new Uint8Array(
+            await crypto.subtle.digest(
+              'SHA-512',
+              new TextEncoder().encode(env.JWT_SECRET + domain)
+            )
+          ),
+          { issuer: domain }
+        ))
+      profile = jwt?.payload?.profile
+    } catch (error) {
+      console.error({ error })
+    }
+  }
+  return { jwt, profile }
 }
 
 const locations = {
