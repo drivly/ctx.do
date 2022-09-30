@@ -71,11 +71,6 @@ export default {
 
       const rayId = req.headers.get('cf-ray')
       const requestId = rayId + '-' + req.cf.colo
-      const isp = req.cf.asOrganization
-      env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent],
-        'indexes': [profile?.id]
-      })
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
@@ -91,10 +86,15 @@ export default {
 
       const userAgent = headers['user-agent']
       const ua = new UAParser(userAgent).getResult()
+      const isp = req.cf.asOrganization
       const city = req.cf.city,
         region = req.cf.region,
         country = countries[req.cf.country]?.name,
         continent = continents[req.cf.continent]
+      env.INTERACTIONS.writeDataPoint({
+        'blobs': [rayId, apikey, ip, url, isp, userAgent],
+        'indexes': [profile?.id]
+      })
       const retval = JSON.stringify(
         {
           api: {
