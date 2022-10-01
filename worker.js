@@ -61,7 +61,7 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = profile?.id ? `index1='${profile?.id}'` : `(blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
+      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
         getAnalytics(env, whereClause),
         getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-01 06:00:00')`),
