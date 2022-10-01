@@ -61,7 +61,7 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
+      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`;
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
         getAnalytics(env, whereClause),
         getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
@@ -98,7 +98,7 @@ export default {
         country = countries[cf.country]?.name,
         continent = continents[cf.continent]
       env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf.botManagement.ja3Hash],
+        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
         'indexes': [profile?.id]
       })
       const retval = JSON.stringify(
