@@ -258,12 +258,8 @@ index1 as profileId
 FROM INTERACTIONS${whereClause ? `
 WHERE ${whereClause}` : ''}`
   })
-  try {
-    const json = res.json()
-    return json.data
-  } catch {
-    return res.text()
-  }
+  const json = await res.json()
+  return json.data
 }
 
 const locations = {
