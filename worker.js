@@ -61,7 +61,9 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`;
+      const whereClause = profile?.id ?
+        `index1='${profile?.id}'` :
+        `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
         getAnalytics(env, whereClause),
         getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
@@ -92,11 +94,11 @@ export default {
 
       const userAgent = headers['user-agent']
       const ua = new UAParser(userAgent).getResult()
-      const isp = cf.asOrganization
-      const city = cf.city,
-        region = cf.region,
+      const isp = cf?.asOrganization
+      const city = cf?.city,
+        region = cf?.region,
         country = countries[cf.country]?.name,
-        continent = continents[cf.continent]
+        continent = continents[cf?.continent]
       env.INTERACTIONS.writeDataPoint({
         'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
         'indexes': [profile?.id]
@@ -172,10 +174,10 @@ export default {
             os: ua?.os?.name,
             ip,
             isp,
-            flag: flags[req.cf.country],
-            zipcode: req.cf.postalCode,
+            flag: flags[cf?.country],
+            zipcode: cf?.postalCode,
             city,
-            metro: metros[req.cf.metroCode],
+            metro: metros[cf?.metroCode],
             region,
             country,
             continent,
@@ -183,12 +185,12 @@ export default {
             localTime,
             timezone,
             edgeLocation: colo?.city,
-            edgeDistanceMiles: req.cf.country === 'US' ? edgeDistance : undefined,
+            edgeDistanceMiles: cf?.country === 'US' ? edgeDistance : undefined,
             edgeDistanceKilometers:
-              req.cf.country === 'US' ? undefined : edgeDistance,
-            latencyMilliseconds: req.cf.clientTcpRtt,
+              cf.country === 'US' ? undefined : edgeDistance,
+            latencyMilliseconds: cf?.clientTcpRtt,
             recentInteractions: interactionCounter[ip],
-            trustScore: profile ? 99 : req.cf?.botManagement?.score,
+            trustScore: profile ? 99 : cf?.botManagement?.score,
           },
         },
         null,
