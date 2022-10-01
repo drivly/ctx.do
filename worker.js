@@ -258,7 +258,8 @@ async function getAnalytics(env, whereClause) {
 WHERE ${whereClause}` : ''}`
   })
   const json = res.ok && await res.json()
-  return json.data?.[0]?.count
+  const count = json.data?.[0]?.count
+  return count ? parseInt(count) : undefined
 }
 
 const locations = {
