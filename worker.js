@@ -92,13 +92,13 @@ export default {
 
       const userAgent = headers['user-agent']
       const ua = new UAParser(userAgent).getResult()
-      const isp = cf.asOrganization
-      const city = cf.city,
-        region = cf.region,
+      const isp = cf?.asOrganization
+      const city = cf?.city,
+        region = cf?.region,
         country = countries[cf.country]?.name,
-        continent = continents[cf.continent]
+        continent = continents[cf?.continent]
       env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf.botManagement.ja3Hash],
+        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
         'indexes': [profile?.id]
       })
       const retval = JSON.stringify(
