@@ -61,13 +61,13 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = profile?.id ?
+      const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
         `index1='${profile?.id}'` :
         `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
-        getAnalytics(env, whereClause),
-        getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
-        getAnalytics(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
+        getStats(env, whereClause),
+        getStats(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
+        getStats(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
       ])
       const colo = locations[cf.colo]
       const edgeDistance = Math.round(
@@ -159,7 +159,7 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
-          analytics: {
+          stats: {
             totalCount,
             monthlyCount,
             dailyCount,
@@ -252,7 +252,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) 
   return { jwt, profile }
 }
 
-async function getAnalytics(env, whereClause) {
+async function getStats(env, whereClause) {
   const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
