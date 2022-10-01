@@ -61,7 +61,12 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const analytics = await getAnalytics(env, profile?.id ? `index1='${profile?.id}'` : `blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}'`)
+      const whereClause = profile?.id ? `index1='${profile?.id}'` : `(blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
+      const [totalCount, monthlyCount, dailyCount] = await Promise.all([
+        getAnalytics(env, whereClause),
+        getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-01 06:00:00')`),
+        getAnalytics(env, whereClause + `  AND timestamp > TODATETIME('${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()} 06:00:00')`)
+      ])
       const colo = locations[cf.colo]
       const edgeDistance = Math.round(
         getDistance(
@@ -152,7 +157,11 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
-          analytics,
+          analytics: {
+            totalCount,
+            monthlyCount,
+            dailyCount,
+          },
           headers,
           cookies,
           user: {
@@ -245,21 +254,11 @@ async function getAnalytics(env, whereClause) {
   const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
-    body: `SELECT
-blob1 AS rayId,
-blob2 AS apikey,
-blob3 AS ip,
-blob4 AS url,
-blob5 AS isp,
-blob6 AS userAgent,
-blob7 AS ja3Hash,
-timestamp,
-index1 as profileId
-FROM INTERACTIONS${whereClause ? `
+    body: `SELECT COUNT() AS count FROM INTERACTIONS${whereClause ? `
 WHERE ${whereClause}` : ''}`
   })
   const json = res.ok && await res.json()
-  return json.data
+  return json.data?.[0]?.count
 }
 
 const locations = {
