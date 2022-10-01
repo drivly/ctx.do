@@ -60,7 +60,8 @@ export default {
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
-      const { jwt, profile, analytics } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname, ip)
+      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
+      const analytics = await getAnalytics(env, profile?.id ? `index1='${profile?.id}'` : `blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}'`)
       const colo = locations[cf.colo]
       const edgeDistance = Math.round(
         getDistance(
@@ -202,7 +203,7 @@ export default {
   },
 }
 
-async function getUserInfo(cookies, apikey, env, req, headers, query, hostname, ip, ja3Hash) {
+async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) {
   let jwt = null
   let profile = null
   if (apikey) {
@@ -237,8 +238,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname, 
       console.error({ error })
     }
   }
-  const analytics = await getAnalytics(env, profile?.id ? `index1='${profile?.id}'` : `blob3='${ip}' OR blob7='${ja3Hash}'`)
-  return { jwt, profile, analytics }
+  return { jwt, profile }
 }
 
 async function getAnalytics(env, whereClause) {
@@ -258,7 +258,7 @@ index1 as profileId
 FROM INTERACTIONS${whereClause ? `
 WHERE ${whereClause}` : ''}`
   })
-  const json = await res.json()
+  const json = res.ok && await res.json()
   return json.data
 }
 
