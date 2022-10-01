@@ -61,7 +61,7 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
+      const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}' OR blob7='${cf?.botManagement?.ja3Hash}')`;
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
         getAnalytics(env, whereClause),
         getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
@@ -172,10 +172,10 @@ export default {
             os: ua?.os?.name,
             ip,
             isp,
-            flag: flags[req.cf.country],
-            zipcode: req.cf.postalCode,
+            flag: flags[req.cf?.country],
+            zipcode: req.cf?.postalCode,
             city,
-            metro: metros[req.cf.metroCode],
+            metro: metros[req.cf?.metroCode],
             region,
             country,
             continent,
@@ -183,10 +183,10 @@ export default {
             localTime,
             timezone,
             edgeLocation: colo?.city,
-            edgeDistanceMiles: req.cf.country === 'US' ? edgeDistance : undefined,
+            edgeDistanceMiles: req.cf?.country === 'US' ? edgeDistance : undefined,
             edgeDistanceKilometers:
               req.cf.country === 'US' ? undefined : edgeDistance,
-            latencyMilliseconds: req.cf.clientTcpRtt,
+            latencyMilliseconds: req.cf?.clientTcpRtt,
             recentInteractions: interactionCounter[ip],
             trustScore: profile ? 99 : req.cf?.botManagement?.score,
           },
