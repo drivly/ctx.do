@@ -64,8 +64,8 @@ export default {
       const whereClause = profile?.id ? `index1='${profile?.id}'` : `index1='' AND (blob3='${ip}' OR blob7='${cf.botManagement.ja3Hash}')`;
       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
         getAnalytics(env, whereClause),
-        getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 5)}-01 06:00:00')`),
-        getAnalytics(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 8)} 06:00:00')`)
+        getAnalytics(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
+        getAnalytics(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
       ])
       const colo = locations[cf.colo]
       const edgeDistance = Math.round(
