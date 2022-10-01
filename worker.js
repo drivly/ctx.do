@@ -97,7 +97,7 @@ export default {
       const isp = cf?.asOrganization
       const city = cf?.city,
         region = cf?.region,
-        country = countries[cf.country]?.name,
+        country = countries[cf?.country]?.name,
         continent = continents[cf?.continent]
       env.INTERACTIONS.writeDataPoint({
         'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
@@ -187,7 +187,7 @@ export default {
             edgeLocation: colo?.city,
             edgeDistanceMiles: cf?.country === 'US' ? edgeDistance : undefined,
             edgeDistanceKilometers:
-              cf.country === 'US' ? undefined : edgeDistance,
+              cf?.country === 'US' ? undefined : edgeDistance,
             latencyMilliseconds: cf?.clientTcpRtt,
             recentInteractions: interactionCounter[ip],
             trustScore: profile ? 99 : cf?.botManagement?.score,
