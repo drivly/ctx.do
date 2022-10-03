@@ -61,14 +61,14 @@ export default {
       const query = Object.fromEntries(searchParams)
       const apikey = headers['x-api-key'] || query['apikey']
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
-        `index1='${profile?.id}'` :
-        `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
-      const [totalCount, monthlyCount, dailyCount] = await Promise.all([
-        getStats(env, whereClause),
-        getStats(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
-        getStats(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
-      ])
+//       const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
+//         `index1='${profile?.id}'` :
+//         `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
+//       const [totalCount, monthlyCount, dailyCount] = await Promise.all([
+//         getStats(env, whereClause),
+//         getStats(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
+//         getStats(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
+//       ])
       const colo = locations[cf.colo]
       const edgeDistance = Math.round(
         getDistance(
@@ -159,11 +159,11 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
-          stats: {
-            totalCount,
-            monthlyCount,
-            dailyCount,
-          },
+//           stats: {
+//             totalCount,
+//             monthlyCount,
+//             dailyCount,
+//           },
           headers,
           cookies,
           user: {
