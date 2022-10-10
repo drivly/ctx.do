@@ -60,7 +60,7 @@ export default {
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = Object.fromEntries(searchParams)
       const authHeader = headers['authorization']?.split(' ')
-      const apikey = query['apikey'] || headers['x-api-key'] || authHeader[1] || authHeader[0]
+      const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
       // const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
       //   `index1='${profile?.id}'` :
