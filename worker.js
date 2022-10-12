@@ -169,7 +169,8 @@ export default {
           cookies,
           user: {
             authenticated: profile !== null,
-            profile: profile || undefined,
+//             profile: profile || undefined,
+            ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
             os: ua?.os?.name,
