@@ -62,7 +62,7 @@ export default {
       const authHeader = headers['authorization']?.split(' ')
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
-      if (profile?.image) profile.image = `https://avatars.do/${profile.id}`)
+      if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
       // const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
       //   `index1='${profile?.id}'` :
       //   `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
