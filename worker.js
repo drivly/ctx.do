@@ -1,4 +1,3 @@
-// import { jwtVerify } from 'https://esb.deno.dev/https://deno.land/x/jose@v4.10.0/index.ts'
 // import { getDistance } from 'https://unpkg.com/geolib@3.3.3'
 // import { UAParser } from 'https://unpkg.com/ua-parser-js@1.0.2'
 
@@ -56,9 +55,9 @@ export default {
       const localTime = now.toLocaleString('en-US', {
         timeZone: timezone,
       })
-      const contentTypePattern = /(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*)))(?:; ?(?<parameter>.*))?/
-      const [, fullName, type, tree, subtype, suffix, parameter] = headers['content-type']?.match(contentTypePattern) || []
-      const contentType = headers['content-type'] && { fullName, type, tree, subtype, suffix, parameter } || undefined
+      const contentType = headers['content-type']
+        ?.match(/(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*)))(?:; ?(?<parameter>.*))?/)
+        ?.groups || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
       const authHeader = headers['authorization']?.split(' ')
@@ -244,7 +243,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
   } catch (error) {
     console.error({ error })
   }
-  return {}
+  return { profile: null }
 }
 
 async function getStats(env, whereClause) {
