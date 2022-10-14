@@ -236,7 +236,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
           "x-api-key": apikey || undefined,
           "cookie": token ? `${tokenKey}=${token}` : undefined
         }
-      })).then(res => res.json()).then(json => json.jwt?.payload?.exp > Date.now() ? json.jwt : null))
+      })).then(res => res.json()).then(json => json.jwt?.payload?.exp && json.jwt.payload.exp > Date.now() ? json.jwt : null))
     profile = jwt?.payload?.profile
     query.token && delete query.token
     return { jwt, profile }
