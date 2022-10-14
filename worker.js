@@ -57,8 +57,8 @@ export default {
         timeZone: timezone,
       })
       const contentTypePattern = /(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*)))(?:; ?(?<parameter>.*))?/
-      //const [, fullName, type, tree, subtype, suffix, parameter] = headers['content-type']?.match(contentTypePattern)
-      // contentType = { fullName, type, tree, subtype, suffix, parameter }
+      const [, fullName, type, tree, subtype, suffix, parameter] = headers['content-type']?.match(contentTypePattern) || []
+      const contentType = headers['content-type'] && { fullName, type, tree, subtype, suffix, parameter } || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
       const authHeader = headers['authorization']?.split(' ')
@@ -146,7 +146,7 @@ export default {
           json,
           url,
           method,
-          //contentType,
+          contentType,
           userAgent,
           ua,
           jwt: jwt || undefined,
