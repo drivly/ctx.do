@@ -2,7 +2,6 @@
 // import { getDistance } from 'https://unpkg.com/geolib@3.3.3'
 // import { UAParser } from 'https://unpkg.com/ua-parser-js@1.0.2'
 
-import { jwtVerify } from 'jose'
 import { getDistance } from 'geolib'
 import { UAParser } from 'ua-parser-js'
 
@@ -18,9 +17,9 @@ let instanceRequests = 0
 export default {
   fetch: async (req, env) => {
     try {
-      const ip = req.headers.get('CF-Connecting-IP')
-      const { url, cf, method } = req
-      const { timezone, latitude, longitude } = cf
+      const headers = Object.fromEntries(req.headers)
+      const ip = headers['CF-Connecting-IP']
+      const { url, cf, method, cf: { timezone, latitude, longitude } } = req
       const { hostname, pathname, search, searchParams, hash, origin } = new URL(
         url
       )
@@ -38,7 +37,6 @@ export default {
       const hostSegments = hostname.split('.')
       const [tld, sld, ...subdomains] = hostSegments.reverse()
       const [subdomain, subsubdomain] = subdomains
-      const headers = Object.fromEntries(req.headers)
       let body = ''
       let text, json = undefined
       try {
@@ -55,13 +53,13 @@ export default {
       const ts = now.valueOf()
       const time = now.toISOString()
       const localTime = now.toLocaleString('en-US', {
-        timeZone: cf.timezone,
+        timeZone: timezone,
       })
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = Object.fromEntries(searchParams)
       const authHeader = headers['authorization']?.split(' ')
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
-      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query, hostname)
+      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query)
       if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
       // const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
       //   `index1='${profile?.id}'` :
@@ -170,7 +168,7 @@ export default {
           cookies,
           user: {
             authenticated: profile !== null,
-//             profile: profile || undefined,
+            //             profile: profile || undefined,
             ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
@@ -217,8 +215,8 @@ export default {
   },
 }
 
-async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) {
-  let jwt = null
+async function getUserInfo(cookies, apikey, env, req, headers, query) {
+  const tokenKey = '__Secure-worker.auth.providers-token'
   let profile = null
   if (apikey) {
     const userData = await env.APIKEYS.fetch(req).then(
@@ -229,31 +227,22 @@ async function getUserInfo(cookies, apikey, env, req, headers, query, hostname) 
     headers['x-api-key'] && delete headers['x-api-key']
     query['apikey'] && delete query['apikey']
   }
-  const token = cookies?.['__Secure-worker.auth.providers-token']
-  if (!profile && token) {
-    try {
-      const domain = hostname.replace(
-        /.*\.([^.]+.[^.]+)$/,
-        '$1'
-      )
-      jwt =
-        hashes[token] ||
-        (hashes[token] = await jwtVerify(
-          token,
-          new Uint8Array(
-            await crypto.subtle.digest(
-              'SHA-512',
-              new TextEncoder().encode(env.JWT_SECRET + domain)
-            )
-          ),
-          { issuer: domain }
-        ))
-      profile = jwt?.payload?.profile
-    } catch (error) {
-      console.error({ error })
-    }
+  const token = query.token || cookies?.[tokenKey]
+  if (profile || !token) return { profile }
+  try {
+    let jwt = hashes[token] ||
+      (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
+        headers: {
+          "x-api-key": apikey || undefined,
+          "cookie": token ? `${tokenKey}=${token}` : undefined
+        }
+      })).then(res => res.json()).then(json => json.jwt?.payload?.exp > Date.now() ? json.jwt : null))
+    profile = jwt?.payload?.profile
+    query.token && delete query.token
+    return { jwt, profile }
+  } catch (error) {
+    console.error({ error })
   }
-  return { jwt, profile }
 }
 
 async function getStats(env, whereClause) {

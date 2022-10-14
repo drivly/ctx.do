@@ -6,7 +6,8 @@ compatibility_date = "2022-08-27"
 node_compat = true
 
 services = [
-  { binding = "APIKEYS", service = "apikeys-do", environment = "production" }
+  { binding = "APIKEYS", service = "apikeys-do", environment = "production" },
+  { binding = "JWT", service = "jwt-do", environment = "production" }
 ]
 
 [[unsafe.bindings]]
