@@ -4,6 +4,7 @@
 
 import { getDistance } from 'geolib'
 import { UAParser } from 'ua-parser-js'
+import qs from 'qs'
 
 const interactionCounter = {}
 const hashes = {}
@@ -20,7 +21,7 @@ export default {
       const headers = Object.fromEntries(req.headers)
       const ip = headers['CF-Connecting-IP']
       const { url, cf, method, cf: { timezone, latitude, longitude } } = req
-      const { hostname, pathname, search, searchParams, hash, origin } = new URL(
+      const { hostname, pathname, search, hash, origin } = new URL(
         url
       )
       const pathSegments = decodeURI(pathname).slice(1).split('/')
@@ -56,7 +57,7 @@ export default {
         timeZone: timezone,
       })
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
-      const query = Object.fromEntries(searchParams)
+      const query = qs.parse(search)
       const authHeader = headers['authorization']?.split(' ')
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query)
