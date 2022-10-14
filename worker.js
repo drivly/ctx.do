@@ -224,20 +224,15 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
     headers['authorization'] && delete headers['authorization']
     headers['x-api-key'] && delete headers['x-api-key']
     query['apikey'] && delete query['apikey']
+    if (profile) return { profile }
   }
   const tokenKey = '__Secure-worker.auth.providers-token'
   const token = query.token || cookies?.[tokenKey]
-  if (profile || !token) return { profile }
-  try {
+  if (token) try {
     let jwt = hashes[token] ||
       (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
-        headers: {
-          "x-api-key": apikey || undefined,
-          "cookie": token ? `${tokenKey}=${token}` : undefined
-        }
-      }))
-      .then(res => res.json())
-      .then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
+        headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
+      })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
     profile = jwt?.payload?.profile
     query.token && delete query.token
     return { jwt, profile }
