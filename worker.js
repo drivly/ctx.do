@@ -57,7 +57,7 @@ export default {
         timeZone: timezone,
       })
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
-      const query = qs.parse(search)
+      const query = qs.parse(search?.substring(1))
       const authHeader = headers['authorization']?.split(' ')
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query)
