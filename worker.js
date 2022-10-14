@@ -229,7 +229,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
     headers['authorization'] && delete headers['authorization']
     headers['x-api-key'] && delete headers['x-api-key']
     query['apikey'] && delete query['apikey']
-    if (profile) return { profile }
+    if (profile) return { jwt: null, profile }
   }
   const tokenKey = '__Secure-worker.auth.providers-token'
   const token = query.token || cookies?.[tokenKey]
