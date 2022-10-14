@@ -56,7 +56,7 @@ export default {
         timeZone: timezone,
       })
       const contentType = headers['content-type']
-        ?.match(/(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*)))(?:; ?(?<parameter>.*))?/)
+        ?.match(/(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/)
         ?.groups || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
