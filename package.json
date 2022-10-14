@@ -13,7 +13,7 @@
     "url": "https://driv.ly"
   },
   "license": "MIT",
-  "scripts": {    
+  "scripts": {
     "build": "esbuild worker.js --bundle --format=esm --minify --outfile=index.js",
     "dev": "wrangler dev worker.js",
     "deploy": "wrangler publish worker.js",
@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "geolib": "^3.3.3",
-    "jose": "^4.9.2",
     "punycode": "^2.1.1",
     "qs": "^6.11.0",
     "ua-parser-js": "^1.0.2"
