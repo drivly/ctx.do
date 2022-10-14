@@ -168,7 +168,6 @@ export default {
           cookies,
           user: {
             authenticated: profile !== null,
-            //             profile: profile || undefined,
             ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
@@ -216,7 +215,6 @@ export default {
 }
 
 async function getUserInfo(cookies, apikey, env, req, headers, query) {
-  const tokenKey = '__Secure-worker.auth.providers-token'
   let profile = null
   if (apikey) {
     const userData = await env.APIKEYS.fetch(req).then(
@@ -227,6 +225,7 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
     headers['x-api-key'] && delete headers['x-api-key']
     query['apikey'] && delete query['apikey']
   }
+  const tokenKey = '__Secure-worker.auth.providers-token'
   const token = query.token || cookies?.[tokenKey]
   if (profile || !token) return { profile }
   try {
@@ -236,7 +235,9 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
           "x-api-key": apikey || undefined,
           "cookie": token ? `${tokenKey}=${token}` : undefined
         }
-      })).then(res => res.json()).then(json => json.jwt?.payload?.exp && json.jwt.payload.exp > Date.now() ? json.jwt : null))
+      }))
+      .then(res => res.json())
+      .then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
     profile = jwt?.payload?.profile
     query.token && delete query.token
     return { jwt, profile }
