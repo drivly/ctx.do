@@ -18,6 +18,7 @@ let instanceRequests = 0
 export default {
   fetch: async (req, env) => {
     try {
+      req = req.clone()
       const headers = Object.fromEntries(req.headers)
       const ip = headers['CF-Connecting-IP']
       const { url, cf, method, cf: { timezone, latitude, longitude } } = req
