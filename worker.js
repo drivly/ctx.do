@@ -58,7 +58,16 @@ export default {
       })
       const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/
       const contentType = headers['content-type']?.match(mimePattern)?.groups || undefined
-      const accept = headers['accept']?.split(',')?.map(a => a.trim().match(mimePattern)?.groups) || undefined
+      const accept = headers['accept']?.split(',')?.map(a => {
+        const groups = a.trim().match(mimePattern)?.groups
+        let { parameter } = groups
+        if (parameter?.includes('=')) {
+          delete groups.parameter
+          parameter = parameter.split('=')
+          groups[parameter[0]] = parseFloat(parameter[1])
+        }
+        return groups
+      }) || undefined
       const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
         const lang = a.trim().split(';')
         const q = lang?.[1]?.split('=')?.[1]?.trim()
