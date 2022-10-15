@@ -4,6 +4,7 @@
 import { getDistance } from 'geolib'
 import { UAParser } from 'ua-parser-js'
 import qs from 'qs'
+import { parse } from 'bcp-47'
 
 const interactionCounter = {}
 const hashes = {}
@@ -55,9 +56,13 @@ export default {
       const localTime = now.toLocaleString('en-US', {
         timeZone: timezone,
       })
-      const contentType = headers['content-type']
-        ?.match(/(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/)
-        ?.groups || undefined
+      const mimePattern = /(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/
+      const contentType = headers['content-type']?.match(mimePattern)?.groups || undefined
+      const accept = headers['accept']?.split(',')?.map(a => a.trim().match(mimePattern)?.groups) || undefined
+      const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
+        const lang = a.trim().split(';')
+        return { ...parse(lang[0]), parameter: lang[1] }
+      }) || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
       const authHeader = headers['authorization']?.split(' ')
@@ -148,6 +153,8 @@ export default {
           contentType,
           userAgent,
           ua,
+          accept,
+          acceptLanguage,
           jwt: jwt || undefined,
           cf,
           rayId,
