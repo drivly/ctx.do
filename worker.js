@@ -56,7 +56,7 @@ export default {
       const localTime = now.toLocaleString('en-US', {
         timeZone: timezone,
       })
-      const mimePattern = /(?<name>(?<type>.*)\/(?:(?<tree>.*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/
+      const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/
       const contentType = headers['content-type']?.match(mimePattern)?.groups || undefined
       const accept = headers['accept']?.split(',')?.map(a => a.trim().match(mimePattern)?.groups) || undefined
       const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
