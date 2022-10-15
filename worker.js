@@ -181,7 +181,7 @@ export default {
           headers,
           cookies,
           user: {
-            authenticated: profile !== null,
+            authenticated: profile?.id > -1,
             ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
