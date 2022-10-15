@@ -61,7 +61,7 @@ export default {
       const accept = headers['accept']?.split(',')?.map(a => a.trim().match(mimePattern)?.groups) || undefined
       const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
         const lang = a.trim().split(';')
-        return { ...parse(lang[0]), parameter: lang[1] }
+        return { ...parse(lang[0]), q: lang?.[1]?.split('=')?.[1]?.trim() || undefined }
       }) || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
