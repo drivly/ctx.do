@@ -65,14 +65,16 @@ export default {
         if (parameter?.includes('=')) {
           delete groups.parameter
           parameter = parameter.split('=')
-          groups[parameter[0]] = parseFloat(parameter[1])
+          groups[parameter[0].trim()] = parseFloat(parameter[1].trim())
         }
         return groups
       }) || undefined
       const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
         const lang = a.trim().split(';')
-        const q = lang?.[1]?.split('=')?.[1]?.trim()
-        return { ...parse(lang[0]), q: q && parseFloat(q) || undefined }
+        const parsedLang = parse(lang[0])
+        const parameter = lang?.[1]?.split('=')
+        if (parameter) parsedLang[parameter[0].trim()] = parameter[1].trim()
+        return parsedLang
       }) || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
