@@ -57,24 +57,14 @@ export default {
       const localTime = now.toLocaleString('en-US', {
         timeZone: timezone,
       })
-      const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameter>.*))?/
-      const contentType = headers['content-type']?.match(mimePattern)?.groups || undefined
-      const accept = headers['accept']?.split(',')?.map(a => {
-        const groups = a.trim().match(mimePattern)?.groups
-        let { parameter } = groups
-        if (parameter?.includes('=')) {
-          delete groups.parameter
-          parameter = parameter.split('=')
-          groups[parameter[0].trim()] = parseFloat(parameter[1].trim())
-        }
-        return groups
-      }) || undefined
+      const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameters>.*))?/
+      const contentType = normalizeParameters(headers['content-type']?.match(mimePattern)?.groups) || undefined
+      const accept = headers['accept']?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
       const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
-        const lang = a.trim().split(';')
-        const parsedLang = parse(lang[0])
-        const parameter = lang?.[1]?.split('=')
-        if (parameter) parsedLang[parameter[0].trim()] = parameter[1].trim()
-        return parsedLang
+        const lang = a.split(';')
+        const parsedLang = parse(lang[0].trim())
+        if (lang?.[1]) parsedLang.parameters = lang[1]
+        return normalizeParameters(parsedLang)
       }) || undefined
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
@@ -236,6 +226,15 @@ export default {
       })
     }
   },
+}
+
+function normalizeParameters(obj) {
+  if (!obj?.parameters) return obj
+  let { parameters } = obj
+  delete obj.parameters
+  obj = { ...obj, ...Object.fromEntries(parameters.split(';').map(p => p.split('='))) }
+  if (obj.q) obj.q = parseFloat(obj.q)
+  return obj
 }
 
 async function getUserInfo(cookies, apikey, env, req, headers, query) {
