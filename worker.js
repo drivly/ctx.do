@@ -54,9 +54,16 @@ export default {
       const now = new Date()
       const ts = now.valueOf()
       const time = now.toISOString()
-      const localTime = now.toLocaleString('en-US', {
-        timeZone: timezone,
-      })
+      let localTime
+      try {
+        localTime = now.toLocaleString('en-US', {
+          timeZone: timezone,
+        })
+      } catch {
+        localTime = now.toLocaleString('en-US', {
+          timeZone: 'UTC',
+        })
+      }
       const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameters>.*))?/
       const contentType = normalizeParameters(headers['content-type']?.match(mimePattern)?.groups) || undefined
       const accept = headers['accept']?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
