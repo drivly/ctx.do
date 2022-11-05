@@ -21,7 +21,8 @@ export default {
       req = req.clone()
       const headers = Object.fromEntries(req.headers)
       const ip = headers['CF-Connecting-IP']
-      const { url, cf, method, cf: { timezone, latitude, longitude } } = req
+      const { url, cf, method, } = req
+      const { timezone, latitude, longitude } = cf || {}
       const { hostname, pathname, search, hash, origin } = new URL(
         url
       )
