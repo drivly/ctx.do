@@ -88,8 +88,8 @@ export default {
       //   getStats(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
       //   getStats(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
       // ])
-      const colo = locations[cf.colo]
-      const edgeDistance = Math.round(
+      const colo = cf.colo && locations[cf.colo]
+      const edgeDistance = colo && Math.round(
         getDistance(
           { latitude, longitude },
           { latitude: colo?.lat, longitude: colo?.lon }
