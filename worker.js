@@ -97,7 +97,7 @@ export default {
       )
 
       const rayId = req.headers.get('cf-ray')
-      const requestId = rayId + '-' + cf.colo
+      const requestId = rayId + '-' + cf?.colo
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
