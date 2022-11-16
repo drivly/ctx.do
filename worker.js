@@ -101,11 +101,11 @@ export default {
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
-      if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12)
+      if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 9)
       if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
       instanceRequests = instanceRequests + 1
       if (!instanceCreated) instanceCreated = ts
-      const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart
+      const instanceDiff = parseInt(requestId.slice(0, 9), 16) - instanceStart
       const instanceDurationMilliseconds = ts - instanceCreated
       const instanceDurationSeconds = Math.floor(
         instanceDurationMilliseconds / 1000
