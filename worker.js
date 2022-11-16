@@ -100,8 +100,8 @@ export default {
       const requestId = rayId + '-' + cf?.colo
       const requestPrefix = requestId.slice(0, 9)
       const requestTimestamp = parseInt(requestPrefix, 16)
-      const requestMagicBits = requestId.slice(10, 16)
-      const requestMagicPrefix = requestId.slice(10, 12)
+      const requestMagicBits = requestId.slice(9, 16)
+      const requestMagicPrefix = requestId.slice(9, 12)
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
@@ -174,6 +174,7 @@ export default {
           cf,
           rayId,
           requestId,
+          requestPrefix,
           requestTimestamp,
           requestMagicBits,
           requestMagicPrefix,
