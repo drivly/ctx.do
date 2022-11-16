@@ -178,7 +178,6 @@ export default {
           requestTimestamp,
           requestMagicBits,
           requestMagicPrefix,
-          newInstance,
           instanceId,
           instanceCreatedBy,
           instancePrefix,
