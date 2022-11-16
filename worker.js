@@ -98,6 +98,10 @@ export default {
 
       const rayId = req.headers.get('cf-ray')
       const requestId = rayId + '-' + cf?.colo
+      const requestPrefix = requestId.slice(0, 9)
+      const requestTimestamp = parseInt(requestPrefix, 16)
+      const requestMagicBits = requestId.slice(10, 16)
+      const requestMagicPrefix = requestId.slice(10, 12)
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
@@ -105,7 +109,7 @@ export default {
       if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
       instanceRequests = instanceRequests + 1
       if (!instanceCreated) instanceCreated = ts
-      const instanceDiff = parseInt(requestId.slice(0, 9), 16) - instanceStart
+      const instanceDiff = requestTimestamp - instanceStart
       const instanceDurationMilliseconds = ts - instanceCreated
       const instanceDurationSeconds = Math.floor(
         instanceDurationMilliseconds / 1000
@@ -170,6 +174,9 @@ export default {
           cf,
           rayId,
           requestId,
+          requestTimestamp,
+          requestMagicBits,
+          requestMagicPrefix,
           newInstance,
           instanceId,
           instanceCreatedBy,
