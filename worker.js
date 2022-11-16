@@ -194,6 +194,7 @@ export default {
           //             monthlyCount,
           //             dailyCount,
           //           },
+          newInstance,
           headers,
           cookies,
           user: {
