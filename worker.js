@@ -19,13 +19,33 @@ export default {
   fetch: async (req, env) => {
     try {
       req = req.clone()
-      const headers = Object.fromEntries(req.headers)
-      const ip = headers['cf-connecting-ip']
+      let body = ''
+      let text = undefined, json = undefined
+      const processes = []
+      if (req.body) {
+        processes.push(req.text().then(textBody => {
+          text = textBody
+          json = text && !text.match(/^[a-z<]/i) ? JSON.parse(text) : undefined
+          body = json || text || ''
+        }).catch(() => body = text || ''))
+      }
       const { url, cf, method, } = req
-      const { timezone, latitude, longitude } = cf || {}
       const { hostname, pathname, search, hash, origin } = new URL(
         url
       )
+      const headers = Object.fromEntries(req.headers)
+      const authHeader = headers['authorization']?.split(' ')
+      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
+      const query = qs.parse(search?.substring(1))
+      const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
+      let userJwt = undefined, userProfile = undefined
+      processes.push(getUserInfo(cookies, apikey, env, req, headers, query).then((jwt, profile) => {
+        userJwt = jwt
+        userProfile = profile
+        if (userProfile?.image) userProfile.image = `https://avatars.do/${userProfile.id}`
+      }))
+      const ip = headers['cf-connecting-ip']
+      const { timezone, latitude, longitude } = cf || {}
       const pathSegments = decodeURI(pathname).slice(1).split('/')
       const pathOptions =
         pathSegments[0] && pathSegments[0].includes('=')
@@ -40,15 +60,6 @@ export default {
       const hostSegments = hostname.split('.')
       const [tld, sld, ...subdomains] = hostSegments.reverse()
       const [subdomain, subsubdomain] = subdomains
-      let body = ''
-      let text, json = undefined
-      try {
-        text = req.body ? await req.text() : undefined
-        json = text ? JSON.parse(text) : undefined
-        body = json ?? text ?? ''
-      } catch {
-        body = text ?? ''
-      }
       interactionCounter[ip] = interactionCounter[ip]
         ? interactionCounter[ip] + 1
         : 1
@@ -74,12 +85,6 @@ export default {
         if (lang?.[1]) parsedLang.parameters = lang[1]
         return normalizeParameters(parsedLang)
       }) || undefined
-      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
-      const query = qs.parse(search?.substring(1))
-      const authHeader = headers['authorization']?.split(' ')
-      const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
-      const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query)
-      if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
       const colo = cf?.colo && locations[cf.colo]
       const edgeDistance = colo && Math.round(
         getDistance(
@@ -114,9 +119,10 @@ export default {
         region = cf?.region,
         country = countries[cf?.country]?.name,
         continent = continents[cf?.continent]
+      await Promise.all(processes)
       env.INTERACTIONS.writeDataPoint({
         'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
-        'indexes': [profile?.id]
+        'indexes': [userProfile?.id]
       })
       const retval = JSON.stringify(
         {
@@ -162,7 +168,7 @@ export default {
           ua,
           accept,
           acceptLanguage,
-          jwt: jwt || undefined,
+          jwt: userJwt || undefined,
           cf,
           rayId,
           requestId,
@@ -179,13 +185,13 @@ export default {
           instanceDurationMilliseconds,
           instanceDurationSeconds,
           instanceRequests,
-          instanceInteractions: profile ? interactionCounter : undefined,
+          instanceInteractions: userProfile ? interactionCounter : undefined,
           newInstance,
           headers,
           cookies,
           user: {
-            authenticated: profile?.id > -1,
-            ...(profile || {}),
+            authenticated: userProfile?.id > -1,
+            ...(userProfile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
             os: ua?.os?.name,
@@ -207,7 +213,7 @@ export default {
               cf?.country === 'US' ? undefined : edgeDistance,
             latencyMilliseconds: cf?.clientTcpRtt,
             recentInteractions: interactionCounter[ip],
-            trustScore: profile ? 99 : cf?.botManagement?.score,
+            trustScore: userProfile ? 99 : cf?.botManagement?.score,
           },
         },
         null,
