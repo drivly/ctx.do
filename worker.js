@@ -122,7 +122,7 @@ export default {
       await Promise.all(processes)
       env.INTERACTIONS.writeDataPoint({
         'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
-        'indexes': [userProfile?.id]
+        'indexes': [profile?.id]
       })
       const retval = JSON.stringify(
         {
