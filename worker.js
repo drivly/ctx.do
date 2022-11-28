@@ -38,11 +38,11 @@ export default {
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
-      let userJwt = undefined, userProfile = undefined
-      processes.push(getUserInfo(cookies, apikey, env, req, headers, query).then((jwt, profile) => {
-        userJwt = jwt
-        userProfile = profile
-        if (userProfile?.image) userProfile.image = `https://avatars.do/${userProfile.id}`
+      let jwt = undefined, profile = undefined
+      processes.push(getUserInfo(cookies, apikey, env, req, headers, query).then((userInfo) => {
+        jwt = userInfo.jwt
+        profile = userInfo.profile
+        if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
       }))
       const ip = headers['cf-connecting-ip']
       const { timezone, latitude, longitude } = cf || {}
@@ -168,7 +168,7 @@ export default {
           ua,
           accept,
           acceptLanguage,
-          jwt: userJwt || undefined,
+          jwt: jwt || undefined,
           cf,
           rayId,
           requestId,
@@ -185,13 +185,13 @@ export default {
           instanceDurationMilliseconds,
           instanceDurationSeconds,
           instanceRequests,
-          instanceInteractions: userProfile ? interactionCounter : undefined,
+          instanceInteractions: profile ? interactionCounter : undefined,
           newInstance,
           headers,
           cookies,
           user: {
-            authenticated: userProfile?.id > -1,
-            ...(userProfile || {}),
+            authenticated: profile?.id > -1,
+            ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
             os: ua?.os?.name,
@@ -213,7 +213,7 @@ export default {
               cf?.country === 'US' ? undefined : edgeDistance,
             latencyMilliseconds: cf?.clientTcpRtt,
             recentInteractions: interactionCounter[ip],
-            trustScore: userProfile ? 99 : cf?.botManagement?.score,
+            trustScore: profile ? 99 : cf?.botManagement?.score,
           },
         },
         null,
