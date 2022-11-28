@@ -3,6 +3,7 @@ route = { pattern = "*/*", zone_name = "ctx.do" }
 main = "worker.js"
 usage_model = "unbound"
 compatibility_date = "2022-10-28"
+logpush = true
 node_compat = true
 
 services = [

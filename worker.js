@@ -20,7 +20,7 @@ export default {
     try {
       req = req.clone()
       const headers = Object.fromEntries(req.headers)
-      const ip = headers['CF-Connecting-IP']
+      const ip = headers['cf-connecting-ip']
       const { url, cf, method, } = req
       const { timezone, latitude, longitude } = cf || {}
       const { hostname, pathname, search, hash, origin } = new URL(
@@ -90,14 +90,18 @@ export default {
 
       const rayId = req.headers.get('cf-ray')
       const requestId = rayId + '-' + cf?.colo
+      const requestPrefix = requestId.slice(0, 9)
+      const requestTimestamp = parseInt(requestPrefix, 16)
+      const requestMagicBits = requestId.slice(9, 16)
+      const requestMagicPrefix = requestId.slice(9, 12)
       const newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
-      if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 12)
+      if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 9)
       if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
       instanceRequests = instanceRequests + 1
       if (!instanceCreated) instanceCreated = ts
-      const instanceDiff = parseInt(requestId.slice(0, 12), 16) - instanceStart
+      const instanceDiff = requestTimestamp - instanceStart
       const instanceDurationMilliseconds = ts - instanceCreated
       const instanceDurationSeconds = Math.floor(
         instanceDurationMilliseconds / 1000
@@ -162,7 +166,10 @@ export default {
           cf,
           rayId,
           requestId,
-          newInstance,
+          requestPrefix,
+          requestTimestamp,
+          requestMagicBits,
+          requestMagicPrefix,
           instanceId,
           instanceCreatedBy,
           instancePrefix,
@@ -173,6 +180,7 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
+          newInstance,
           headers,
           cookies,
           user: {
