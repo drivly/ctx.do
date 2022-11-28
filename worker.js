@@ -80,14 +80,6 @@ export default {
       const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       const { jwt, profile } = await getUserInfo(cookies, apikey, env, req, headers, query)
       if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
-      // const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
-      //   `index1='${profile?.id}'` :
-      //   `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
-      // const [totalCount, monthlyCount, dailyCount] = await Promise.all([
-      //   getStats(env, whereClause),
-      //   getStats(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
-      //   getStats(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
-      // ])
       const colo = cf?.colo && locations[cf.colo]
       const edgeDistance = colo && Math.round(
         getDistance(
@@ -181,11 +173,6 @@ export default {
           instanceDurationSeconds,
           instanceRequests,
           instanceInteractions: profile ? interactionCounter : undefined,
-          //           stats: {
-          //             totalCount,
-          //             monthlyCount,
-          //             dailyCount,
-          //           },
           headers,
           cookies,
           user: {
@@ -273,7 +260,23 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
   return { profile: null }
 }
 
-async function getStats(env, whereClause) {
+async function getStats({ env, apikey, profile, cf, ip }) {
+  const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
+    `index1='${profile?.id}'` :
+    `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
+  const [totalCount, monthlyCount, dailyCount] = await Promise.all([
+    getStat(env, whereClause),
+    getStat(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
+    getStat(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
+  ])
+  return {
+    totalCount,
+    monthlyCount,
+    dailyCount,
+  }
+}
+
+async function getStat(env, whereClause) {
   const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
