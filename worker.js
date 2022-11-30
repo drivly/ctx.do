@@ -71,7 +71,8 @@ export default {
         localTime = now.toLocaleString('en-US', {
           timeZone: timezone,
         })
-      } catch {
+      } catch (error) {
+        console.log({ error })
         localTime = now.toLocaleString('en-US', {
           timeZone: 'UTC',
         })
@@ -120,10 +121,15 @@ export default {
         country = countries[cf?.country]?.name,
         continent = continents[cf?.continent]
       await Promise.all(processes)
-      env.INTERACTIONS.writeDataPoint({
-        'blobs': [rayId, apikey, ip, url, isp, userAgent, cf?.botManagement?.ja3Hash],
-        'indexes': [profile?.id]
-      })
+      const blobLength = rayId?.length + apikey?.length + ip?.length + url?.length + isp?.length + userAgent?.length + cf?.botManagement?.ja3Hash?.length
+      try {
+        env.INTERACTIONS.writeDataPoint({
+          'blobs': [rayId, apikey, ip, blobLength > 5120 ? url.substring(0, 5120 + url.length - blobLength) : url, isp, userAgent, cf?.botManagement?.ja3Hash],
+          'indexes': [profile?.id]
+        })
+      } catch (error) {
+        console.log({ error })
+      }
       const retval = JSON.stringify(
         {
           api: {
