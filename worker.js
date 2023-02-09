@@ -17,56 +17,51 @@ let instanceRequests = 0
 
 export default {
   fetch: async (req, env) => {
+    let body = ''
+    let text = undefined, json = undefined
+    let jwt = undefined, profile = undefined
+    const processes = []
+    const now = new Date()
+    const ts = now.valueOf()
+    const time = now.toISOString()
+    let localTime, apikey, query, cookies, headers, authHeader, request, ip, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
-      const request = req.clone()
-      let body = ''
-      let text = undefined, json = undefined
-      const processes = []
-      if (request.body) {
-        processes.push(request.text().then(textBody => {
-          text = textBody
-          json = text && !text.match(/^[a-z<]/i) ? JSON.parse(text) : undefined
-          body = json || text || ''
-        }).catch(() => body = text || ''))
-      }
+      request = req.clone()
       const { url, cf, method, } = request
       const { hostname, pathname, search, hash, origin } = new URL(
         url
       )
-      const headers = Object.fromEntries(request.headers)
-      const authHeader = headers['authorization']?.split(' ')
-      const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
-      const query = qs.parse(search?.substring(1))
-      const apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
-      let jwt = undefined, profile = undefined
+      headers = Object.fromEntries(request.headers)
+      authHeader = headers['authorization']?.split(' ')
+      cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
+      query = qs.parse(search?.substring(1))
+      apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push(getUserInfo(cookies, apikey, env, req, headers, query).then((userInfo) => {
         jwt = userInfo.jwt
         profile = userInfo.profile
         if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
+      }).catch((err) => {
+        // logMongo(JSON.stringify(err), true)
       }))
-      const ip = headers['cf-connecting-ip']
+      ip = headers['cf-connecting-ip']
       const { timezone, latitude, longitude } = cf || {}
-      const pathSegments = decodeURI(pathname).slice(1).split('/')
-      const pathOptions =
+      pathSegments = decodeURI(pathname).slice(1).split('/')
+      pathOptions =
         pathSegments[0] && pathSegments[0].includes('=')
           ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
           : undefined
-      const pathDefaults = pathSegments
+      pathDefaults = pathSegments
         .map((segment) =>
           segment.slice(0, 1) == ':' ? segment.slice(1) : undefined
         )
         .filter((n) => n)
-      const rootPath = pathname == '/' || pathname == '/api'
-      const hostSegments = hostname.split('.')
+      rootPath = pathname == '/' || pathname == '/api'
+      hostSegments = hostname.split('.')
       const [tld, sld, ...subdomains] = hostSegments.reverse()
       const [subdomain, subsubdomain] = subdomains
       interactionCounter[ip] = interactionCounter[ip]
         ? interactionCounter[ip] + 1
         : 1
-      const now = new Date()
-      const ts = now.valueOf()
-      const time = now.toISOString()
-      let localTime
       try {
         localTime = now.toLocaleString('en-US', {
           timeZone: timezone,
@@ -77,59 +72,60 @@ export default {
           timeZone: 'UTC',
         })
       }
-      const mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameters>.*))?/
-      const contentType = normalizeParameters(headers['content-type']?.match(mimePattern)?.groups) || undefined
-      const accept = headers['accept']?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
-      const acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
+      mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameters>.*))?/
+      contentType = normalizeParameters(headers['content-type']?.match(mimePattern)?.groups) || undefined
+      accept = headers['accept']?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
+      acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
         const lang = a.split(';')
         const parsedLang = parse(lang[0].trim())
         if (lang?.[1]) parsedLang.parameters = lang[1]
         return normalizeParameters(parsedLang)
       }) || undefined
-      const colo = cf?.colo && locations[cf.colo]
-      const edgeDistance = colo && Math.round(
+      colo = cf?.colo && locations[cf.colo]
+      edgeDistance = colo && Math.round(
         getDistance(
           { latitude, longitude },
           { latitude: colo?.lat, longitude: colo?.lon }
         ) / (cf.country === 'US' ? 1609.344 : 1000)
       )
 
-      const rayId = req.headers.get('cf-ray')
-      const requestId = rayId + '-' + cf?.colo
-      const requestPrefix = requestId.slice(0, 9)
-      const requestTimestamp = parseInt(requestPrefix, 16)
-      const requestMagicBits = requestId.slice(9, 16)
-      const requestMagicPrefix = requestId.slice(9, 12)
-      const newInstance = instanceCreatedBy ? false : true
+      rayId = req.headers.get('cf-ray')
+      requestId = rayId + '-' + cf?.colo
+      requestPrefix = requestId.slice(0, 9)
+      requestTimestamp = parseInt(requestPrefix, 16)
+      requestMagicBits = requestId.slice(9, 16)
+      requestMagicPrefix = requestId.slice(9, 12)
+      newInstance = instanceCreatedBy ? false : true
       if (!instanceCreatedBy) instanceCreatedBy = requestId
       if (!instanceId) instanceId = instanceCreatedBy.slice(12, 16)
       if (!instancePrefix) instancePrefix = instanceCreatedBy.slice(0, 9)
       if (!instanceStart) instanceStart = parseInt(instancePrefix, 16)
       instanceRequests = instanceRequests + 1
       if (!instanceCreated) instanceCreated = ts
-      const instanceDiff = requestTimestamp - instanceStart
-      const instanceDurationMilliseconds = ts - instanceCreated
-      const instanceDurationSeconds = Math.floor(
+      instanceDiff = requestTimestamp - instanceStart
+      instanceDurationMilliseconds = ts - instanceCreated
+      instanceDurationSeconds = Math.floor(
         instanceDurationMilliseconds / 1000
       )
 
-      const userAgent = headers['user-agent']
-      const ua = new UAParser(userAgent).getResult()
-      const isp = cf?.asOrganization
-      const city = cf?.city,
-        region = cf?.region,
-        country = countries[cf?.country]?.name,
-        continent = continents[cf?.continent]
-      await Promise.all(processes)
-      const blobLength = rayId?.length + apikey?.length + ip?.length + url?.length + isp?.length + userAgent?.length + cf?.botManagement?.ja3Hash?.length
-      try {
-        env.INTERACTIONS.writeDataPoint({
-          'blobs': [rayId, apikey, ip, blobLength > 5120 ? url.substring(0, 5120 + url.length - blobLength) : url, isp, userAgent, cf?.botManagement?.ja3Hash],
-          'indexes': [profile?.id]
-        })
-      } catch (error) {
-        console.log({ error })
+      userAgent = headers['user-agent']
+      ua = new UAParser(userAgent).getResult()
+      isp = cf?.asOrganization
+      city = cf?.city
+      region = cf?.region
+      country = countries[cf?.country]?.name
+      continent = continents[cf?.continent]
+      if (request.body) {
+        processes.push(request.text().then(textBody => {
+          text = textBody
+          json = text && !text.match(/^[a-z<]/i) ? JSON.parse(text) : undefined
+          body = json || text || ''
+        }).catch((err) => {
+          // logMongo(JSON.stringify(err), true)
+          return body = text || ''
+        }))
       }
+      await Promise.all(processes)
       const retval = JSON.stringify(
         {
           api: {
@@ -266,16 +262,18 @@ async function getUserInfo(cookies, apikey, env, req, headers, query) {
   }
   const tokenKey = '__Secure-worker.auth.providers-token'
   const token = query.token || cookies?.[tokenKey]
-  if (token) try {
-    let jwt = hashes[token] ||
-      (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
-        headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
-      })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
-    profile = jwt?.payload?.profile
-    query.token && delete query.token
-    return { jwt, profile }
-  } catch (error) {
-    console.error({ error })
+  if (token) {
+    try {
+      let jwt = hashes[token] ||
+        (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
+          headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
+        })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
+      profile = jwt?.payload?.profile
+      query.token && delete query.token
+      return { jwt, profile }
+    } catch (error) {
+      console.error({ error })
+    }
   }
   return { profile: null }
 }
