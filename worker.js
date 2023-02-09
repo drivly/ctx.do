@@ -18,22 +18,22 @@ let instanceRequests = 0
 export default {
   fetch: async (req, env) => {
     try {
-      req = req.clone()
+      const request = req.clone()
       let body = ''
       let text = undefined, json = undefined
       const processes = []
-      if (req.body) {
-        processes.push(req.text().then(textBody => {
+      if (request.body) {
+        processes.push(request.text().then(textBody => {
           text = textBody
           json = text && !text.match(/^[a-z<]/i) ? JSON.parse(text) : undefined
           body = json || text || ''
         }).catch(() => body = text || ''))
       }
-      const { url, cf, method, } = req
+      const { url, cf, method, } = request
       const { hostname, pathname, search, hash, origin } = new URL(
         url
       )
-      const headers = Object.fromEntries(req.headers)
+      const headers = Object.fromEntries(request.headers)
       const authHeader = headers['authorization']?.split(' ')
       const cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       const query = qs.parse(search?.substring(1))
