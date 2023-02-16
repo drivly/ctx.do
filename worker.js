@@ -16,7 +16,24 @@ let instanceId = undefined
 let instanceRequests = 0
 
 export default {
-  fetch: async (req, env) => {
+  fetch: async (req, env, ctx) => {
+    async function logMongo(data, isError = false) {
+      return await fetch(env.MONGO_ENDPOINT + '/action/insertOne', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Request-Headers': '*',
+          'api-key': env.MONGO_APIKEY,
+        },
+        body: `{
+"dataSource": "logs",
+"database": "ctx-do",
+"collection": "${isError ? 'errors' : 'logs'}",
+"document": ${data}
+}`
+      })
+    }
+
     let body = ''
     let text = undefined, json = undefined
     let jwt = undefined, profile = undefined
@@ -36,13 +53,39 @@ export default {
       cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       query = qs.parse(search?.substring(1))
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
-      processes.push(getUserInfo(cookies, apikey, env, req, headers, query).then((userInfo) => {
+      processes.push((async () => {
+        let profile = null
+        if (apikey) {
+          const userData = await env.APIKEYS.fetch(req).then(
+            (res) => res.ok && res.json()
+          )
+          profile = userData?.profile || null
+          headers['authorization'] && delete headers['authorization']
+          headers['x-api-key'] && delete headers['x-api-key']
+          query['apikey'] && delete query['apikey']
+          if (profile) return { profile }
+        }
+        const tokenKey = '__Secure-worker.auth.providers-token'
+        const token = query.token || cookies?.[tokenKey]
+        if (token) {
+          try {
+            let jwt = hashes[token] ||
+              (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
+                headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
+              })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
+            profile = jwt?.payload?.profile
+            query.token && delete query.token
+            return { jwt, profile }
+          } catch (error) {
+            console.error({ error })
+          }
+        }
+        return { profile: null }
+      })().then((userInfo) => {
         jwt = userInfo.jwt
         profile = userInfo.profile
         if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
-      }).catch((err) => {
-        // logMongo(JSON.stringify(err), true)
-      }))
+      }).catch())
       ip = headers['cf-connecting-ip']
       const { timezone, latitude, longitude } = cf || {}
       pathSegments = decodeURI(pathname).slice(1).split('/')
@@ -121,7 +164,6 @@ export default {
           json = text && !text.match(/^[a-z<]/i) ? JSON.parse(text) : undefined
           body = json || text || ''
         }).catch((err) => {
-          // logMongo(JSON.stringify(err), true)
           return body = text || ''
         }))
       }
@@ -221,6 +263,7 @@ export default {
         null,
         2
       )
+      ctx.waitUntil(logMongo(retval))
       return new Response(method === 'HEAD' ? null : retval, {
         headers: {
           'content-type': 'application/json; charset=utf-8',
@@ -230,7 +273,9 @@ export default {
       const { name, message, trace } = err
       const error = { name, message, trace }
       console.log({ error })
-      return new Response(JSON.stringify({ error }, null, 2), {
+      const errorBody = JSON.stringify({ error }, null, 2)
+      ctx.waitUntil(logMongo(errorBody, true))
+      return new Response(errorBody, {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
@@ -246,64 +291,6 @@ function normalizeParameters(obj) {
   obj = { ...obj, ...Object.fromEntries(parameters.split(';').map(p => p.split('='))) }
   if (obj.q) obj.q = parseFloat(obj.q)
   return obj
-}
-
-async function getUserInfo(cookies, apikey, env, req, headers, query) {
-  let profile = null
-  if (apikey) {
-    const userData = await env.APIKEYS.fetch(req).then(
-      (res) => res.ok && res.json()
-    )
-    profile = userData?.profile || null
-    headers['authorization'] && delete headers['authorization']
-    headers['x-api-key'] && delete headers['x-api-key']
-    query['apikey'] && delete query['apikey']
-    if (profile) return { profile }
-  }
-  const tokenKey = '__Secure-worker.auth.providers-token'
-  const token = query.token || cookies?.[tokenKey]
-  if (token) {
-    try {
-      let jwt = hashes[token] ||
-        (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
-          headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
-        })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
-      profile = jwt?.payload?.profile
-      query.token && delete query.token
-      return { jwt, profile }
-    } catch (error) {
-      console.error({ error })
-    }
-  }
-  return { profile: null }
-}
-
-async function getStats({ env, apikey, profile, cf, ip }) {
-  const whereClause = apikey ? `blob2='${apikey}'` : profile?.id ?
-    `index1='${profile?.id}'` :
-    `index1='' AND (blob3='${ip}'${cf?.botManagement?.ja3Hash ? ` OR blob7='${cf.botManagement.ja3Hash}'` : ''})`
-  const [totalCount, monthlyCount, dailyCount] = await Promise.all([
-    getStat(env, whereClause),
-    getStat(env, whereClause + ` AND timestamp > TODATETIME('${now.toISOString().substring(0, 7)}-01 06:00:00')`),
-    getStat(env, whereClause + `  AND timestamp > TODATETIME('${now.toISOString().substring(0, 10)} 06:00:00')`)
-  ])
-  return {
-    totalCount,
-    monthlyCount,
-    dailyCount,
-  }
-}
-
-async function getStat(env, whereClause) {
-  const res = await fetch("https://api.cloudflare.com/client/v4/accounts/b6641681fe423910342b9ffa1364c76d/analytics_engine/sql", {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.ANALYTICS_API_KEY}` },
-    body: `SELECT COUNT() AS count FROM INTERACTIONS${whereClause ? `
-WHERE ${whereClause}` : ''}`
-  })
-  const json = res.ok && await res.json()
-  const count = json.data?.[0]?.count
-  return count ? parseInt(count) : undefined
 }
 
 const locations = {
