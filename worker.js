@@ -41,13 +41,26 @@ export default {
     const now = new Date()
     const ts = now.valueOf()
     const time = now.toISOString()
-    let localTime, apikey, query, cookies, headers, authHeader, request, ip, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
+    let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
-      request = req.clone()
-      const { url, cf, method, } = request
-      const { hostname, pathname, search, hash, origin } = new URL(
+      request = req.clone();
+      ({ url, cf, method, } = request);
+      ({ hostname, pathname, search, hash, origin } = new URL(
         url
-      )
+      ))
+      api = {
+        icon: '🌎',
+        name: 'ctx.do',
+        description: 'Context Enrichment',
+        url: 'https://ctx.do',
+        endpoints: {
+          context: 'https://ctx.do/api',
+        },
+        memberOf: 'https://apis.do/core',
+        login: origin + '/login',
+        logout: origin + '/logout',
+        repo: 'https://github.com/drivly/ctx.do',
+      }
       headers = Object.fromEntries(request.headers)
       authHeader = headers['authorization']?.split(' ')
       cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
@@ -56,7 +69,7 @@ export default {
       processes.push((async () => {
         let profile = null
         if (apikey) {
-          const userData = await env.APIKEYS.fetch(req).then(
+          const userData = await env.APIKEYS.fetch(request).then(
             (res) => res.ok && res.json()
           )
           profile = userData?.profile || null
@@ -70,7 +83,7 @@ export default {
         if (token) {
           try {
             let jwt = hashes[token] ||
-              (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, req.url), {
+              (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, url), {
                 headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
               })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
             profile = jwt?.payload?.profile
@@ -86,9 +99,13 @@ export default {
         profile = userInfo.profile
         if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
       }).catch())
-      ip = headers['cf-connecting-ip']
-      const { timezone, latitude, longitude } = cf || {}
-      pathSegments = decodeURI(pathname).slice(1).split('/')
+      ip = headers['cf-connecting-ip'];
+      ({ timezone, latitude, longitude } = cf || {})
+      try {
+        pathSegments = decodeURI(pathname).slice(1).split('/')
+      } catch {
+        pathSegments = pathname.slice(1).split('/')
+      }
       pathOptions =
         pathSegments[0] && pathSegments[0].includes('=')
           ? Object.fromEntries(new URLSearchParams(pathSegments[0]))
@@ -99,9 +116,9 @@ export default {
         )
         .filter((n) => n)
       rootPath = pathname == '/' || pathname == '/api'
-      hostSegments = hostname.split('.')
-      const [tld, sld, ...subdomains] = hostSegments.reverse()
-      const [subdomain, subsubdomain] = subdomains
+      hostSegments = hostname.split('.');
+      [tld, sld, ...subdomains] = hostSegments.reverse()
+      [subdomain, subsubdomain] = subdomains || []
       interactionCounter[ip] = interactionCounter[ip]
         ? interactionCounter[ip] + 1
         : 1
@@ -170,19 +187,7 @@ export default {
       await Promise.all(processes)
       const retval = JSON.stringify(
         {
-          api: {
-            icon: '🌎',
-            name: 'ctx.do',
-            description: 'Context Enrichment',
-            url: 'https://ctx.do',
-            endpoints: {
-              context: 'https://ctx.do/api',
-            },
-            memberOf: 'https://apis.do/core',
-            login: origin + '/login',
-            logout: origin + '/logout',
-            repo: 'https://github.com/drivly/ctx.do',
-          },
+          api,
           colo,
           hostname,
           pathname,
@@ -273,7 +278,86 @@ export default {
       const { name, message, trace } = err
       const error = { name, message, trace }
       console.log({ error })
-      const errorBody = JSON.stringify({ error }, null, 2)
+      const errorBody = JSON.stringify({
+        api,
+        error,
+        colo,
+        hostname,
+        pathname,
+        search,
+        hash,
+        origin,
+        query,
+        pathSegments,
+        pathOptions,
+        pathDefaults,
+        rootPath,
+        hostSegments,
+        tld,
+        sld,
+        subdomains,
+        subdomain,
+        subsubdomain,
+        ts,
+        time,
+        body,
+        text,
+        json,
+        url,
+        method,
+        contentType,
+        userAgent,
+        ua,
+        accept,
+        acceptLanguage,
+        jwt: jwt || undefined,
+        cf,
+        rayId,
+        requestId,
+        requestPrefix,
+        requestTimestamp,
+        requestMagicBits,
+        requestMagicPrefix,
+        instanceId,
+        instanceCreatedBy,
+        instancePrefix,
+        instanceStart,
+        instanceCreated,
+        instanceDiff,
+        instanceDurationMilliseconds,
+        instanceDurationSeconds,
+        instanceRequests,
+        instanceInteractions: profile ? interactionCounter : undefined,
+        newInstance,
+        headers,
+        cookies,
+        user: {
+          authenticated: profile?.id > -1,
+          ...(profile || {}),
+          plan: '🛠 Build',
+          browser: ua?.browser?.name,
+          os: ua?.os?.name,
+          ip,
+          isp,
+          flag: flags[cf?.country],
+          zipcode: cf?.postalCode,
+          city,
+          metro: metros[cf?.metroCode],
+          region,
+          country,
+          continent,
+          requestId,
+          localTime,
+          timezone,
+          edgeLocation: colo?.city,
+          edgeDistanceMiles: cf?.country === 'US' ? edgeDistance : undefined,
+          edgeDistanceKilometers:
+            cf?.country === 'US' ? undefined : edgeDistance,
+          latencyMilliseconds: cf?.clientTcpRtt,
+          recentInteractions: interactionCounter[ip],
+          trustScore: profile ? 99 : cf?.botManagement?.score,
+        },
+      }, null, 2)
       ctx.waitUntil(logMongo(errorBody, true))
       return new Response(errorBody, {
         headers: {
