@@ -27,8 +27,8 @@ export default {
         },
         body: `{
 "dataSource": "logs",
-"database": "ctx-do",
-"collection": "${isError ? 'errors' : 'logs'}",
+"database": "${isError ? 'errors' : 'logs'}",
+"collection": "ctx.do",
 "document": ${data}
 }`
       })
