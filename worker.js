@@ -41,7 +41,7 @@ export default {
     const now = new Date()
     const ts = now.valueOf()
     const time = now.toISOString()
-    let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
+    let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, cfWorker, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
       request = req.clone();
       ({ url, cf, method, } = request);
@@ -63,43 +63,47 @@ export default {
       }
       headers = Object.fromEntries(request.headers)
       authHeader = headers['authorization']?.split(' ')
+      cfWorker = headers['CF-Worker']
       cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       query = qs.parse(search?.substring(1))
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
-        let profile = null
         if (apikey) {
           const userData = await env.APIKEYS.fetch(request).then(
             (res) => res.ok && res.json()
           )
           profile = userData?.profile || null
+          if (profile?.id) profile.image = `https://avatars.do/${profile.id}`
           headers['authorization'] && delete headers['authorization']
           headers['x-api-key'] && delete headers['x-api-key']
           query['apikey'] && delete query['apikey']
-          if (profile) return { profile }
+          if (profile) return 
         }
         const tokenKey = '__Secure-worker.auth.providers-token'
         const token = query.token || cookies?.[tokenKey]
         if (token) {
           try {
-            let jwt = hashes[token] ||
+            jwt = hashes[token] ||
               (hashes[token] = await env.JWT.fetch(new Request(new URL(`/verify?token=${token}`, url), {
                 headers: { "cookie": token ? `${tokenKey}=${token}` : undefined }
               })).then(res => res.json()).then(json => !json.jwt?.payload?.exp || json.jwt.payload.exp > Date.now() ? json.jwt : null))
             profile = jwt?.payload?.profile
+            if (profile?.id) profile.image = `https://avatars.do/${profile.id}`
             query.token && delete query.token
-            return { jwt, profile }
+            return 
           } catch (error) {
             console.error({ error })
           }
         }
-        return { profile: null }
-      })().then((userInfo) => {
-        jwt = userInfo.jwt
-        profile = userInfo.profile
-        if (profile?.image) profile.image = `https://avatars.do/${profile.id}`
-      }).catch())
-      ip = headers['cf-connecting-ip'];
+        if (cfWorker) {
+          const [zonetld, zonesld] = new URL(cfWorker).hostname.split('.').reverse()
+          if (zones[zonetld]?.[zonesld]) {
+            profile = { user: cfWorker, role: 'worker' }
+            return
+          }
+        }
+      })().catch())
+      ip = headers['cf-connecting-ip']
       ({ timezone, latitude, longitude } = cf || {})
       try {
         pathSegments = decodeURI(pathname).slice(1).split('/')
