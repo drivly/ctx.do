@@ -97,7 +97,7 @@ export default {
           }
         }
         if (cfWorker) {
-          const [zonetld, zonesld] = new URL(cfWorker).hostname.split('.').reverse()
+          const [zonetld, zonesld] = cfWorker.split('.').reverse()
           if (zones[zonetld]?.[zonesld]) {
             profile = { user: cfWorker, role: 'worker' }
             return
