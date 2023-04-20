@@ -98,9 +98,8 @@ export default {
         }
         if (cfWorker) {
           const [zonetld, zonesld] = cfWorker.split('.').reverse()
-          if (zones[zonetld]?.[zonesld]) {
+          if (zones[zonetld]?.includes(zonesld)) {
             profile = { user: cfWorker, role: 'worker' }
-            return
           }
         }
       })().catch())
