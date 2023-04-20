@@ -243,7 +243,7 @@ export default {
           headers,
           cookies,
           user: {
-            authenticated: profile?.id > -1,
+            authenticated: profile?.id > -1 || cfWorker?.length > 0 && profile?.user === cfWorker,
             ...(profile || {}),
             plan: '🛠 Build',
             browser: ua?.browser?.name,
