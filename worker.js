@@ -63,7 +63,7 @@ export default {
       }
       headers = Object.fromEntries(request.headers)
       authHeader = headers['authorization']?.split(' ')
-      cfWorker = headers['CF-Worker']
+      cfWorker = headers['cf-worker']
       cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
       query = qs.parse(search?.substring(1))
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
@@ -102,9 +102,9 @@ export default {
             return
           }
         }
-      })().catch());
+      })().catch())
       ip = headers['cf-connecting-ip'];
-      ({ timezone, latitude, longitude } = cf || {});
+      ({ timezone, latitude, longitude } = cf || {})
       try {
         pathSegments = decodeURI(pathname).slice(1).split('/')
       } catch {
