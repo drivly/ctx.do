@@ -102,9 +102,9 @@ export default {
             return
           }
         }
-      })().catch())
-      ip = headers['cf-connecting-ip']
-      ({ timezone, latitude, longitude } = cf || {})
+      })().catch());
+      ip = headers['cf-connecting-ip'];
+      ({ timezone, latitude, longitude } = cf || {});
       try {
         pathSegments = decodeURI(pathname).slice(1).split('/')
       } catch {
