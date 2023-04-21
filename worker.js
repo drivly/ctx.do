@@ -3323,7 +3323,7 @@ const zones = {
     "src",
     "stacks",
     "startups",
-    "state",
+//     "state",
     "storage",
     "streaks",
     "streams",
