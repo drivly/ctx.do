@@ -44,7 +44,7 @@ export default {
     const time = now.toISOString()
     let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, cfWorker, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
-      request = req.clone();
+      request = new Request(req);
       ({ url, cf, method, } = request);
       ({ hostname, pathname, search, hash, origin } = new URL(
         url
