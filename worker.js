@@ -70,7 +70,7 @@ export default {
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
         if (apikey) {
-          const userData = await env.APIKEYS.fetch(request).then(
+          const userData = await env.APIKEYS.fetch(new Request(req)).then(
             (res) => res.ok && res.json()
           )
           profile = userData?.profile || null
