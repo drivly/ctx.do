@@ -44,7 +44,7 @@ export default {
     const time = now.toISOString()
     let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, cfWorker, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
-      request = new Request(req);
+      request = req.clone();
       ({ url, cf, method, } = request);
       ({ hostname, pathname, search, hash, origin } = new URL(
         url
@@ -70,7 +70,7 @@ export default {
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
         if (apikey) {
-          const userData = await env.APIKEYS.fetch(new Request(req)).then(
+          const userData = await env.APIKEYS.fetch(req.clone()).then(
             (res) => res.ok && res.json()
           )
           profile = userData?.profile || null
