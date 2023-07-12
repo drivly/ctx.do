@@ -281,7 +281,7 @@ export default {
     } catch (err) {
       const { name, message, trace } = err
       const error = { name, message, trace }
-      console.log({ error })
+      console.log({ name, message, trace, err })
       const errorBody = JSON.stringify({
         api,
         error,
