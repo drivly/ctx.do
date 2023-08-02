@@ -3172,7 +3172,7 @@ const zones = {
     "glyph",
     "glyphs",
     "goals",
-    "gpt",
+//    "gpt",
     "gql",
     "graph",
     "graphql",
@@ -3395,6 +3395,7 @@ const zones = {
     "zones"
   ],
   "vin": [
+    "adf",
     "agg",
     "apis",
     "approval",
