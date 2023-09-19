@@ -13,6 +13,5 @@ services = [
   { binding = "JWT", service = "jwt-do", environment = "production" }
 ]
 
-[[unsafe.bindings]]
-type = "analytics_engine"
-name = "INTERACTIONS"
+[[analytics_engine_datasets]]
+binding = "INTERACTIONS"
