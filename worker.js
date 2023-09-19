@@ -18,6 +18,11 @@ let instanceRequests = 0
 export default {
   fetch: async (req, env, ctx) => {
     async function logMongo(data, isError = false) {
+      if (isError) {
+        console.error('彡', 'logs.logs.ctx.do', data)
+      } else {
+        console.log('彡', 'logs.errors.ctx.do', data)
+      }
       if (env.MONGO_ENDPOINT)
         return await fetch(env.MONGO_ENDPOINT + '/action/insertOne', {
           method: 'POST',
