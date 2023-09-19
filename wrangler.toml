@@ -12,6 +12,3 @@ services = [
   { binding = "APIKEYS", service = "apikeys-do", environment = "production" },
   { binding = "JWT", service = "jwt-do", environment = "production" }
 ]
-
-[[analytics_engine_datasets]]
-binding = "INTERACTIONS"

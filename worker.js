@@ -19,9 +19,9 @@ export default {
   fetch: async (req, env, ctx) => {
     async function logMongo(data, isError = false) {
       if (isError) {
-        console.error('彡', 'logs.logs.ctx.do', data)
-      } else {
         console.log('彡', 'logs.errors.ctx.do', data)
+      } else {
+        console.error('彡', 'logs.logs.ctx.do', data)
       }
       if (env.MONGO_ENDPOINT)
         return await fetch(env.MONGO_ENDPOINT + '/action/insertOne', {
@@ -194,7 +194,7 @@ export default {
         }))
       }
       await Promise.all(processes)
-      const retval = JSON.stringify(
+      const retval = 
         {
           api,
           colo,
@@ -273,12 +273,9 @@ export default {
             recentInteractions: interactionCounter[ip],
             trustScore: profile ? 99 : cf?.botManagement?.score,
           },
-        },
-        null,
-        2
-      )
+        }
       ctx.waitUntil(logMongo(retval))
-      return new Response(method === 'HEAD' ? null : retval, {
+      return new Response(method === 'HEAD' ? null : JSON.stringify(retval, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
@@ -287,7 +284,7 @@ export default {
       const { name, message, trace } = err
       const error = { name, message, trace }
       console.log({ name, message, trace, err })
-      const errorBody = JSON.stringify({
+      const errorBody = {
         api,
         error,
         colo,
@@ -366,9 +363,9 @@ export default {
           recentInteractions: interactionCounter[ip],
           trustScore: profile ? 99 : cf?.botManagement?.score,
         },
-      }, null, 2)
+      }
       ctx.waitUntil(logMongo(errorBody, true))
-      return new Response(errorBody, {
+      return new Response(JSON.stringify(errorBody, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
