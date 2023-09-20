@@ -19,25 +19,10 @@ export default {
   fetch: async (req, env, ctx) => {
     async function logMongo(data, isError = false) {
       if (isError) {
-        console.log('彡', 'logs.errors.ctx.do', data)
+        console.error('彡', 'logs.errors.ctx.do', data)
       } else {
-        console.error('彡', 'logs.logs.ctx.do', data)
+        console.log('彡', 'logs.logs.ctx.do', data)
       }
-      if (env.MONGO_ENDPOINT)
-        return await fetch(env.MONGO_ENDPOINT + '/action/insertOne', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Request-Headers': '*',
-            'api-key': env.MONGO_APIKEY,
-          },
-          body: `{
-"dataSource": "logs",
-"database": "${isError ? 'errors' : 'logs'}",
-"collection": "ctx.do",
-"document": ${data}
-}`
-        })
     }
 
     let body = ''
