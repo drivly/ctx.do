@@ -18,21 +18,11 @@ let instanceRequests = 0
 export default {
   fetch: async (req, env, ctx) => {
     async function logMongo(data, isError = false) {
-      if (env.MONGO_ENDPOINT)
-        return await fetch(env.MONGO_ENDPOINT + '/action/insertOne', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Request-Headers': '*',
-            'api-key': env.MONGO_APIKEY,
-          },
-          body: `{
-"dataSource": "logs",
-"database": "${isError ? 'errors' : 'logs'}",
-"collection": "ctx.do",
-"document": ${data}
-}`
-        })
+      if (isError) {
+        console.error('彡', 'logs.errors.ctx.do', data)
+      } else {
+        console.log('彡', 'logs.logs.ctx.do', data)
+      }
     }
 
     let body = ''
@@ -44,7 +34,7 @@ export default {
     const time = now.toISOString()
     let api, url, cf, method, hostname, pathname, search, hash, origin, localTime, apikey, query, tld, sld, subdomains, subdomain, subsubdomain, cookies, headers, authHeader, cfWorker, request, ip, timezone, latitude, longitude, pathSegments, pathOptions, pathDefaults, rootPath, hostSegments, mimePattern, contentType, accept, acceptLanguage, colo, edgeDistance, rayId, requestId, requestPrefix, requestMagicPrefix, requestMagicBits, requestTimestamp, newInstance, instanceDiff, instanceDurationSeconds, instanceDurationMilliseconds, userAgent, ua, isp, city, region, country, continent
     try {
-      request = new Request(req);
+      request = req.clone();
       ({ url, cf, method, } = request);
       ({ hostname, pathname, search, hash, origin } = new URL(
         url
@@ -70,7 +60,7 @@ export default {
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
         if (apikey) {
-          const userData = await env.APIKEYS.fetch(request).then(
+          const userData = await env.APIKEYS.fetch(req.clone()).then(
             (res) => res.ok && res.json()
           )
           profile = userData?.profile || null
@@ -189,7 +179,7 @@ export default {
         }))
       }
       await Promise.all(processes)
-      const retval = JSON.stringify(
+      const retval = 
         {
           api,
           colo,
@@ -268,12 +258,9 @@ export default {
             recentInteractions: interactionCounter[ip],
             trustScore: profile ? 99 : cf?.botManagement?.score,
           },
-        },
-        null,
-        2
-      )
+        }
       ctx.waitUntil(logMongo(retval))
-      return new Response(method === 'HEAD' ? null : retval, {
+      return new Response(method === 'HEAD' ? null : JSON.stringify(retval, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
@@ -281,8 +268,8 @@ export default {
     } catch (err) {
       const { name, message, trace } = err
       const error = { name, message, trace }
-      console.log({ error })
-      const errorBody = JSON.stringify({
+      console.log({ name, message, trace, err })
+      const errorBody = {
         api,
         error,
         colo,
@@ -361,9 +348,9 @@ export default {
           recentInteractions: interactionCounter[ip],
           trustScore: profile ? 99 : cf?.botManagement?.score,
         },
-      }, null, 2)
+      }
       ctx.waitUntil(logMongo(errorBody, true))
-      return new Response(errorBody, {
+      return new Response(JSON.stringify(errorBody, null, 2), {
         headers: {
           'content-type': 'application/json; charset=utf-8',
         },
@@ -3172,7 +3159,7 @@ const zones = {
     "glyph",
     "glyphs",
     "goals",
-    "gpt",
+//    "gpt",
     "gql",
     "graph",
     "graphql",
@@ -3395,6 +3382,7 @@ const zones = {
     "zones"
   ],
   "vin": [
+    "adf",
     "agg",
     "apis",
     "approval",
