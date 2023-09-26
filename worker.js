@@ -59,7 +59,7 @@ export default {
       query = qs.parse(search?.substring(1))
       apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
-        if (apikey) {
+        if (apikey && apikey != 'null') {
           const userData = await env.APIKEYS.fetch(req.clone()).then(
             (res) => res.ok && res.json()
           )

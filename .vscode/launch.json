@@ -6,24 +6,6 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "yarn dev --local true"
-    },
-    {
-      "name": "Cloudflare: debug client-side",
-      "type": "pwa-chrome",
-      "request": "launch",
-      "url": "http://localhost:8787"
-    },
-    {
-      "name": "Cloudflare: debug full stack",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "yarn dev --local true",
-      "console": "integratedTerminal",
-      "serverReadyAction": {
-        "pattern": "started server on .+, url: (https?://.+)",
-        "uriFormat": "%s",
-        "action": "debugWithChrome"
-      }
     }
   ]
 }
