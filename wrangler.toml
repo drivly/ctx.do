@@ -6,7 +6,7 @@ compatibility_date = "2023-07-01"
 logpush = true
 node_compat = true
 
-tail_consumers = [{service = "tail", environment = "production"}]
+# tail_consumers = [{service = "tail", environment = "production"}]
 
 services = [
   { binding = "APIKEYS", service = "apikeys-do", environment = "production" },
