@@ -16,7 +16,7 @@
   "license": "MIT",
   "scripts": {
     "build": "esbuild worker.js --bundle --format=esm --minify --outfile=index.js",
-    "dev": "wrangler dev worker.js",
+    "dev": "wrangler dev worker.js --inspector-port 1337",
     "deploy": "wrangler publish worker.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write '**/*.{js,css,json,md}'"
