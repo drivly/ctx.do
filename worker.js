@@ -16,6 +16,9 @@ let instanceId = undefined
 let instanceRequests = 0
 
 export default {
+  /**
+   * @param {Request} req 
+   */
   fetch: async (req, env, ctx) => {
     async function logMongo(data, isError = false) {
       // if (isError) {
@@ -68,11 +71,11 @@ export default {
         repo: 'https://github.com/drivly/ctx.do',
       }
       headers = Object.fromEntries(request.headers)
-      authHeader = headers['authorization']?.split(' ')
-      cfWorker = headers['cf-worker']
-      cookies = headers['cookie'] && Object.fromEntries(headers['cookie'].split(';').map(c => c.trim().split('=')))
+      authHeader = request.headers.get('authorization')?.split(' ')
+      cfWorker = request.headers.get('cf-worker')
+      cookies = request.headers.has('cookie') ? Object.fromEntries(request.headers.get('cookie').split(';').map(c => c.trim().split('='))) : null
       query = qs.parse(search?.substring(1))
-      apikey = query['apikey'] || headers['x-api-key'] || authHeader?.[1] || authHeader?.[0]
+      apikey = query['apikey'] ||  request.headers.get('x-api-key') || authHeader?.[1] || authHeader?.[0]
       processes.push((async () => {
         if (apikey && apikey != 'null') {
           const userData = await env.APIKEYS.fetch(req.clone()).then(
@@ -80,9 +83,9 @@ export default {
           )
           profile = userData?.profile || null
           if (profile?.id) profile.image = `https://avatars.do/${profile.id}`
-          headers['authorization'] && delete headers['authorization']
-          headers['x-api-key'] && delete headers['x-api-key']
-          query['apikey'] && delete query['apikey']
+          if (request.headers.has('authorization')) delete headers['authorization']
+          if (request.headers.has('x-api-key')) delete headers['x-api-key']
+          if (query['apikey']) delete query['apikey']
           if (profile) return 
         }
         const tokenKey = '__Secure-worker.auth.providers-token'
@@ -101,14 +104,14 @@ export default {
             console.error({ error })
           }
         }
-        if (cfWorker) {
+        if (cfWorker && !['ctx.do', 'ctx.vin'].includes(hostname)) {
           const [zonetld, zonesld] = cfWorker.split('.').reverse()
           if (zones[zonetld]?.includes(zonesld)) {
             profile = { user: cfWorker, role: 'worker' }
           }
         }
       })().catch())
-      ip = headers['cf-connecting-ip'];
+      ip = request.headers.get('cf-connecting-ip');
       ({ timezone, latitude, longitude } = cf || {})
       try {
         pathSegments = decodeURI(pathname).slice(1).split('/')
@@ -142,9 +145,9 @@ export default {
         })
       }
       mimePattern = /(?<name>(?<type>[^;]*)\/(?:(?<tree>[^;]*)\.)?(?<subtype>[^;.+]*)(?:\+(?<suffix>[^;]*))?)(?:; ?(?<parameters>.*))?/
-      contentType = normalizeParameters(headers['content-type']?.match(mimePattern)?.groups) || undefined
-      accept = headers['accept']?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
-      acceptLanguage = headers['accept-language']?.split(',')?.map(a => {
+      contentType = normalizeParameters(request.headers.get('content-type')?.match(mimePattern)?.groups) || undefined
+      accept = request.headers.get('accept')?.split(',')?.map(a => normalizeParameters(a.trim().match(mimePattern)?.groups)) || undefined
+      acceptLanguage = request.headers.get('accept-language')?.split(',')?.map(a => {
         const lang = a.split(';')
         const parsedLang = parse(lang[0].trim())
         if (lang?.[1]) parsedLang.parameters = lang[1]
@@ -177,7 +180,7 @@ export default {
         instanceDurationMilliseconds / 1000
       )
 
-      userAgent = headers['user-agent']
+      userAgent = request.headers.get('user-agent')
       ua = new UAParser(userAgent).getResult()
       isp = cf?.asOrganization
       city = cf?.city
