@@ -104,7 +104,7 @@ export default {
             console.error({ error })
           }
         }
-        if (cfWorker && !['ctx.do', 'ctx.vin'].includes(hostname)) {
+        if (cfWorker) {
           const [zonetld, zonesld] = cfWorker.split('.').reverse()
           if (zones[zonetld]?.includes(zonesld)) {
             profile = { user: cfWorker, role: 'worker' }
